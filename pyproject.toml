@@ -26,17 +26,12 @@ dependencies = [
     "pyvista",
     "scipy",
     "matplotlib",
-    "python-gmsh",
+    "gmsh",
     "mmg",
     "meshio",
     "pytest",
-    "pytest-cov"
-    "occt=7.7.0",
-    "cadquery=2.3.1"
-    'simcoon',
+    "pytest-cov",
     'panda',
-    'microgen@git+https://github.com/3MAH/microgen',
-    'fedoo@git+https://github.com/3MAH/fedoo',
     ]
 dynamic = ["version"]
 
@@ -102,6 +97,11 @@ version = {attr = 'belem._version.__version__'}
 include = [
     'belem',
     'belem.*',
+    ]
+
+[tool.setuptools.package-data]
+"belem.data" = [
+    'offset_densities.json',
     ]
 
 [tool.mypy]
