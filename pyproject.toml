@@ -1,0 +1,136 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "belem"
+authors = [
+    {name = "Yasmin LEGERSTEE", email = 'yasmin.legerstee@u-bordeaux.fr'},
+    ]
+description = "Architectured materials homogenization"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["microstructure", "lattice", "FEM"]
+classifiers = [
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering :: Information Analysis',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX',
+    'Operating System :: MacOS',
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    ]
+dependencies = [
+    "numpy",
+    "pyvista",
+    "scipy",
+    "matplotlib",
+    "python-gmsh",
+    "mmg",
+    "meshio",
+    "pytest",
+    "pytest-cov"
+    "occt=7.7.0",
+    "cadquery=2.3.1"
+    'simcoon',
+    'panda',
+    'microgen@git+https://github.com/3MAH/microgen',
+    'fedoo@git+https://github.com/3MAH/fedoo',
+    ]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+all = [
+    'pardiso4py',
+    'pytest',
+    'pytest-cov',
+    'pytest',
+    'pytest-mypy',
+    'pytest-pylint',
+    'pytest-cov',
+    'pytest-watch',
+    'pylint',
+    'black',
+    'mypy',
+    'hypothesis',
+    'h5py',
+    'ipython',
+    'jupyter',
+    'mypy',
+    'meshio',
+    'scipy',
+    'simcoon',
+    'panda',
+    'microgen@git+https://github.com/3MAH/microgen',
+    'fedoo@git+https://github.com/3MAH/fedoo',
+    ]
+test = [
+    'pytest',
+    'pytest-cov',
+    'pytest',
+    'pytest-mypy',
+    'pytest-pylint',
+    'pytest-cov',
+    'pytest-watch',
+    'pylint',
+    'black',
+    'mypy',
+    'hypothesis',
+    'h5py',
+    ]
+
+dev = [
+    'ipython',
+    'jupyter',
+    'mypy',
+    'meshio',
+    'scipy',
+    'microgen@git+https://github.com/3MAH/microgen#egg=setup_dependencies',
+    'fedoo@git+https://github.com/3MAH/fedoo',
+    ]
+
+
+[project.urls]
+"Bug Tracker" = 'https://github.com/ylgrst/belem/issues'
+"Source Code" = 'https://github.com/ylgrst/belem'
+
+[tool.setuptools.dynamic]
+version = {attr = 'belem._version.__version__'}
+
+[tool.setuptools.packages.find]
+include = [
+    'belem',
+    'belem.*',
+    ]
+
+[tool.mypy]
+follow_imports = 'silent'
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+disallow_any_explicit = true
+check_untyped_defs = true
+plugins = "numpy.typing.mypy_plugin"
+namespace_packages = true
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = "test"
+
+[[tool.mypy.overrides]]
+module = [
+    "networkx",
+    "hypothesis",
+    "hypothesis.strategies",
+    "scipy.spatial",
+    "scipy.spatial._qhull",
+    "scipy",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "shapely.geometry",
+    "laspy"
+    ]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 80
