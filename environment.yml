@@ -3,7 +3,7 @@ channels:
   - set3mah
 
 dependencies:
-  - pyvista>=0.39
+  - pyvista==0.41.1
   - python-gmsh
   - meshio
   - pytest-cov

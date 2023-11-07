@@ -52,8 +52,7 @@ class Cuboctahedron:
         self.strut_directions_cartesian = self._compute_strut_directions()
         self.strut_directions_euler = self._compute_euler_angles()
 
-        # @classmethod
-
+    # @classmethod
     # def radius_from_density(
     #         cls,
     #         density: float,
@@ -164,7 +163,7 @@ class Cuboctahedron:
 
         return directions_array
 
-    def _compute_euler_angles(self) -> npt.NDArray[np.float]:
+    def _compute_euler_angles(self) -> npt.NDArray[np.float_]:
         """Computes euler angles from default (1.0, 0.0, 0.0) oriented cylinder for all struts in the lattice"""
 
         default_dir = np.array([1.0, 0.0, 0.0])
@@ -188,7 +187,8 @@ class Cuboctahedron:
         for i in range(24):
             elem = Cylinder(
                 center=tuple(self.strut_centers[i]),
-                orientation=(self.strut_directions_euler[i, 2], self.strut_directions_euler[i, 1], self.strut_directions_euler[i, 0]),
+                orientation=(self.strut_directions_euler[i, 2], self.strut_directions_euler[i, 1],
+                             self.strut_directions_euler[i, 0]),
                 height=self.cell_size * m.sqrt(2.0) / 2.0,
                 radius=self.strut_radius,
             )
@@ -207,26 +207,40 @@ class Cuboctahedron:
 
         return fused_compound
 
-    def generateVtk(self) -> pv.PolyData:
-        listStruts = []
+    @property
+    def volume(self) -> np.float:
+        volume = self.generate().Volume()/(self.cell_size * self.cell_size * self.cell_size)
 
-        for i in range(24):
-            elem = Cylinder(
-                center=tuple(self.strut_centers[i]),
-                orientation=(self.strut_directions_euler[i, 2], self.strut_directions_euler[i, 1],
-                             self.strut_directions_euler[i, 0]),
-                height=self.cell_size * m.sqrt(2.0) / 2.0,
-                radius=self.strut_radius,
-            )
-            listStruts.append(elem.generateVtk().triangulate())
+        return volume
 
-        merged_struts = pv.Polydata()
-        for strut in listStruts:
-            merged_struts.boolean_union(strut)
-
-        return merged_struts
-
-
-
-
-
+    # def generateVtk(self) -> pv.PolyData:
+    #     listStruts = []
+    #
+    #     for i in range(24):
+    #         elem = Cylinder(
+    #             center=tuple(self.strut_centers[i]),
+    #             orientation=(self.strut_directions_euler[i, 2], self.strut_directions_euler[i, 1],
+    #                          self.strut_directions_euler[i, 0]),
+    #             height=self.cell_size * m.sqrt(2.0) / 2.0,
+    #             radius=self.strut_radius,
+    #         )
+    #         strut = elem.generateVtk().triangulate()
+    #         points = pv.wrap(strut.points)
+    #         pv.plot(points)
+    #         surf = points.reconstruct_surface()
+    #         pv.plot(surf)
+    #         listStruts.append(surf)
+    #
+    #     merged_struts = pv.MultiBlock(listStruts).combine().extract_surface().clean().triangulate()
+    #
+    #     pv.plot(merged_struts, show_edges=True)
+    #     merged_struts.plot_normals(mag=0.1, faces=True)
+    #
+    #     cube = pv.Cube(center=tuple(self.center), x_length=self.cell_size, y_length=self.cell_size,
+    #                    z_length=self.cell_size).clean().triangulate()
+    #
+    #     cube.plot_normals(mag=0.1, faces=True)
+    #
+    #     lattice = merged_struts.boolean_intersection(cube)
+    #
+    #     return lattice

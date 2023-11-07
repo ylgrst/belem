@@ -17,13 +17,12 @@ classifiers = [
     'Operating System :: Microsoft :: Windows',
     'Operating System :: POSIX',
     'Operating System :: MacOS',
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     ]
 dependencies = [
     "numpy",
-    "pyvista",
+    "pyvista==0.41.1",
     "scipy",
     "matplotlib",
     "gmsh",
