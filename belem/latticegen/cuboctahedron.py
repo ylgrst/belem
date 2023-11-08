@@ -8,8 +8,7 @@ import pyvista as pv
 from microgen import (
     Rve,
     Cylinder,
-    periodic,
-    cutPhases,
+    Box,
     Phase,
 )
 
@@ -180,9 +179,8 @@ class Cuboctahedron:
 
         return euler_angles_array
 
-    def generate(self) -> cq.Compound:
+    def generate(self) -> cq.Shape:
         listPhases = []
-        listPeriodicPhases = []
 
         for i in range(24):
             elem = Cylinder(
@@ -194,21 +192,19 @@ class Cuboctahedron:
             )
             listPhases.append(Phase(shape=elem.generate()))
 
-        for phase_elem in listPhases:
-            periodicPhase = periodic(phase=phase_elem, rve=self.rve)
-            listPeriodicPhases.append(periodicPhase)
-
-        phases_cut = cutPhases(
-            phaseList=listPeriodicPhases, reverseOrder=False
-        )
-        compound = cq.Compound.makeCompound([phase.shape for phase in phases_cut])
+        compound = cq.Compound.makeCompound([phase.shape for phase in listPhases])
 
         fused_compound = cq.Compound.fuse(compound)
 
-        return fused_compound
+        bounding_box = Box(center=self.center, orientation=self.orientation, dim_x=self.cell_size, dim_y=self.cell_size,
+                           dim_z=self.cell_size).generate()
+
+        lattice = bounding_box.intersect(fused_compound)
+
+        return lattice
 
     @property
-    def volume(self) -> np.float:
+    def volume(self) -> float:
         volume = self.generate().Volume()/(self.cell_size * self.cell_size * self.cell_size)
 
         return volume
