@@ -276,7 +276,6 @@ class Kelvin:
                 euler_angles_array[i] = np.zeros(3)
             else:
                 axis = np.cross(default_dir, self.strut_directions_cartesian[i])
-                print(axis)
                 axis /= np.linalg.norm(axis)
                 angle = np.arccos(np.dot(default_dir, self.strut_directions_cartesian[i]))
                 rotation_vector_array[i] = angle * axis
