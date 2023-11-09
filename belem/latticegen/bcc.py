@@ -17,7 +17,7 @@ from microgen import (
 
 class BodyCenteredCubic:
     """
-    Class to create a unit cuboctahedron lattice of given cell size and density or strut radius
+    Class to create a unit body-centered cubic lattice of given cell size and density or strut radius
     """
 
     def __init__(self,
@@ -105,11 +105,14 @@ class BodyCenteredCubic:
         euler_angles_array = np.zeros((8, 3))
 
         for i in range(8):
-            axis = np.cross(default_dir, self.strut_directions_cartesian[i])
-            axis /= np.linalg.norm(axis)
-            angle = np.arccos(np.dot(default_dir, self.strut_directions_cartesian[i]))
-            rotation_vector_array[i] = angle * axis
-            euler_angles_array[i] = Rotation.from_rotvec(rotation_vector_array[i]).as_euler('zxz', degrees=True)
+            if np.all(self.strut_directions_cartesian[i] == default_dir) or np.all(self.strut_directions_cartesian[i] == -default_dir):
+                euler_angles_array[i] = np.zeros(3)
+            else:
+                axis = np.cross(default_dir, self.strut_directions_cartesian[i])
+                axis /= np.linalg.norm(axis)
+                angle = np.arccos(np.dot(default_dir, self.strut_directions_cartesian[i]))
+                rotation_vector_array[i] = angle * axis
+                euler_angles_array[i] = Rotation.from_rotvec(rotation_vector_array[i]).as_euler('zxz', degrees=True)
 
         return euler_angles_array
 
