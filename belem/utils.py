@@ -14,3 +14,17 @@ def compute_density_offset_polyfit_from_dataset_json_file(json_filename):
         models[key] = model
 
     return models
+
+def compute_density_radius_polyfit_from_dataset_json_file(json_filename):
+    with open(json_filename) as json_file:
+        dataset = json.load(json_file)
+    models = {}
+    for key, value in dataset.items():
+        data_points = np.asarray(value)
+        radii, densities = data_points[:, 0], data_points[:, 1]
+        degree = 9
+        p = np.polyfit(densities, radii, degree)
+        model = np.poly1d(p)
+        models[key] = model
+
+    return models
