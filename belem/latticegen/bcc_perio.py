@@ -16,7 +16,7 @@ from microgen import (
 )
 
 
-class BodyCenteredCubic:
+class BodyCenteredCubicPerio:
     """
     Class to create a unit body-centered cubic lattice of given cell size and density or strut radius
     """
@@ -70,16 +70,12 @@ class BodyCenteredCubic:
         return vertices_array
 
     def _compute_strut_centers(self) -> npt.NDArray[np.float_]:
-        centers_array = np.array([
-            (self.vertices[1] + self.vertices[0]),
-            (self.vertices[2] + self.vertices[0]),
-            (self.vertices[3] + self.vertices[0]),
-            (self.vertices[4] + self.vertices[0]),
-            (self.vertices[5] + self.vertices[0]),
-            (self.vertices[6] + self.vertices[0]),
-            (self.vertices[7] + self.vertices[0]),
-            (self.vertices[8] + self.vertices[0]),
-        ]) / 2.0
+        centers_array = self.cell_size*np.array([
+            [0.5, -0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [-0.5, 0.5, 0.5],
+            [-0.5, -0.5, 0.5]
+        ])
         return centers_array
 
     def _compute_strut_directions(self) -> npt.NDArray[np.float_]:
@@ -87,11 +83,7 @@ class BodyCenteredCubic:
             (self.vertices[1] - self.vertices[0]) / np.linalg.norm((self.vertices[1] - self.vertices[0])),
             (self.vertices[2] - self.vertices[0]) / np.linalg.norm((self.vertices[2] - self.vertices[0])),
             (self.vertices[3] - self.vertices[0]) / np.linalg.norm((self.vertices[3] - self.vertices[0])),
-            (self.vertices[4] - self.vertices[0]) / np.linalg.norm((self.vertices[4] - self.vertices[0])),
-            (self.vertices[5] - self.vertices[0]) / np.linalg.norm((self.vertices[5] - self.vertices[0])),
-            (self.vertices[6] - self.vertices[0]) / np.linalg.norm((self.vertices[6] - self.vertices[0])),
-            (self.vertices[7] - self.vertices[0]) / np.linalg.norm((self.vertices[7] - self.vertices[0])),
-            (self.vertices[8] - self.vertices[0]) / np.linalg.norm((self.vertices[8] - self.vertices[0])),
+            (self.vertices[4] - self.vertices[0]) / np.linalg.norm((self.vertices[4] - self.vertices[0]))
         ])
 
         return directions_array
@@ -101,10 +93,10 @@ class BodyCenteredCubic:
 
         default_dir = np.array([1.0, 0.0, 0.0])
 
-        rotation_vector_array = np.zeros((8, 3))
-        euler_angles_array = np.zeros((8, 3))
+        rotation_vector_array = np.zeros((4, 3))
+        euler_angles_array = np.zeros((4, 3))
 
-        for i in range(8):
+        for i in range(4):
             if np.all(self.strut_directions_cartesian[i] == default_dir) or np.all(self.strut_directions_cartesian[i] == -default_dir):
                 euler_angles_array[i] = np.zeros(3)
             else:
@@ -117,25 +109,30 @@ class BodyCenteredCubic:
         return np.round(euler_angles_array, decimals=3)
 
     def generate(self) -> cq.Shape:
-        list_struts = []
+        listPhases = []
+        listPeriodicPhases = []
 
-        for i in range(8):
+        for i in range(4):
             elem = Cylinder(
                 center=tuple(self.strut_centers[i]),
                 orientation=(self.strut_directions_euler[i, 2], self.strut_directions_euler[i, 1],
                              self.strut_directions_euler[i, 0]),
-                height=self.cell_size * m.sqrt(3.0) / 2.0,
+                height=self.cell_size * m.sqrt(3.0),
                 radius=self.strut_radius,
             )
-            list_struts.append(elem.generate())
+            listPhases.append(Phase(shape=elem.generate()))
 
-        fused_compound = fuseShapes(list_struts, retain_edges=False)
 
-        bounding_box = Box(center=self.center, orientation=self.orientation, dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size).generate()
+        for phase_elem in listPhases:
+            periodicPhase = periodic(phase=phase_elem, rve=self.rve)
+            listPeriodicPhases.append(periodicPhase)
 
-        lattice = bounding_box.intersect(fused_compound)
+        phases_cut = cutPhases(
+            phaseList=listPeriodicPhases, reverseOrder=False
+        )
+        compound = cq.Compound.makeCompound([phase.shape for phase in phases_cut])
 
-        return lattice
+        return compound
 
     @property
     def volume(self) -> float:
