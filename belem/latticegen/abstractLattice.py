@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import numpy.typing as npt
 import numpy as np
 from scipy.spatial.transform import Rotation
-from typing import Union, Sequence
 import cadquery as cq
 from microgen import (
     Rve,
@@ -19,11 +18,8 @@ class AbstractLattice(ABC):
 
     def __init__(self,
                  strut_radius: float = 0.05,
-                 # density: Optional[float] = None,
                  cell_size: float = 1.0,
-                 repeat_cell: Union[int, Sequence[int]] = 1,
                  center: tuple[float, float, float] = (0.0, 0.0, 0.0),
-                 orientation: tuple[float, float, float] = (0.0, 0.0, 0.0),
                  ) -> None:
         """
         Class to generate a unit body-centered cubic lattice.
@@ -31,17 +27,13 @@ class AbstractLattice(ABC):
         The number of repetitions in each direction of the created geometry can be modified with 'repeat_cell'.
 
         :param strut_radius: radius of the struts
-        :param repeat_cell: integer or list of integers to repeat the geometry in each dimension
+        :param cell_size: size of the cubic rve in which the lattice cell is enclosed
         :param center: center of the geometry
-        :param orientation: orientation of the geometry
         """
 
         self.strut_radius = strut_radius
-        # self.density = density
         self.cell_size = cell_size
-        self.repeat_cell = repeat_cell
         self.center = center
-        self.orientation = orientation
 
         self.rve = Rve(dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size, center=self.center)
 
@@ -102,7 +94,7 @@ class AbstractLattice(ABC):
 
         fused_compound = fuseShapes(list_struts, retain_edges=False)
 
-        bounding_box = Box(center=self.center, orientation=self.orientation, dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size).generate()
+        bounding_box = Box(center=self.center, dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size).generate()
 
         lattice = bounding_box.intersect(fused_compound)
 
