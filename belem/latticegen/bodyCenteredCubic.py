@@ -2,7 +2,6 @@ from .abstractLattice import AbstractLattice
 import numpy as np
 import numpy.typing as npt
 import math as m
-from typing import Union, Sequence
 
 
 class BodyCenteredCubic(AbstractLattice):
@@ -11,14 +10,10 @@ class BodyCenteredCubic(AbstractLattice):
     """
 
     def __init__(self,
-                 strut_radius: float = 0.05,
-                 cell_size: float = 1.0,
-                 repeat_cell: Union[int, Sequence[int]] = 1,
-                 center: tuple[float, float, float] = (0.0, 0.0, 0.0),
-                 orientation: tuple[float, float, float] = (0.0, 0.0, 0.0),
+                 *args, **kwargs
                  ) -> None:
 
-        super().__init__(strut_radius=strut_radius, cell_size=cell_size, repeat_cell=repeat_cell, center=center, orientation=orientation)
+        super().__init__(*args, **kwargs)
 
     @property
     def n_struts(self) -> int:

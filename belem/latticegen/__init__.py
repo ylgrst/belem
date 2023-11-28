@@ -1,5 +1,5 @@
 from .cuboctahedron import Cuboctahedron
-from .bcc import BodyCenteredCubic
-from .octettruss import OctetTruss
+from .bodyCenteredCubic import BodyCenteredCubic
+from .octetTruss import OctetTruss
 from .kelvin import Kelvin
 from .truncatedOctahedron import TruncatedOctahedron
