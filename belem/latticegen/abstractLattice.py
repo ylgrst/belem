@@ -102,6 +102,6 @@ class AbstractLattice(ABC):
 
     @property
     def volume(self) -> float:
-        volume = self.generate().Volume()/(self.cell_size * self.cell_size * self.cell_size)
+        volume = self.generate().Volume()
 
         return volume
