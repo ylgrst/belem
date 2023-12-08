@@ -5,9 +5,11 @@ from scipy.spatial.transform import Rotation
 import cadquery as cq
 from microgen import (
     Rve,
+    Phase,
     Cylinder,
     Box,
     fuseShapes,
+    periodic,
 )
 
 
@@ -80,7 +82,8 @@ class AbstractLattice(ABC):
         return euler_angles_array
 
     def generate(self) -> cq.Shape:
-        list_struts = []
+        list_phases : list[Phase] = []
+        list_periodic_phases : list[Phase] = []
 
         for i in range(self.n_struts):
             elem = Cylinder(
@@ -90,15 +93,19 @@ class AbstractLattice(ABC):
                 height=self.strut_height,
                 radius=self.strut_radius,
             )
-            list_struts.append(elem.generate())
+            list_phases.append(Phase(elem.generate()))
 
-        fused_compound = fuseShapes(list_struts, retain_edges=False)
+        for phase_strut in list_phases:
+            periodic_phase = periodic(phase=phase_strut, rve=self.rve)
+            list_periodic_phases.append(periodic_phase)
+
+        lattice = fuseShapes([phase.shape for phase in list_periodic_phases], retain_edges=False)
 
         bounding_box = Box(center=self.center, dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size).generate()
 
-        lattice = bounding_box.intersect(fused_compound)
+        cut_lattice = bounding_box.intersect(lattice)
 
-        return lattice
+        return cut_lattice
 
     @property
     def volume(self) -> float:
