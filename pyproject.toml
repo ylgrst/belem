@@ -22,7 +22,7 @@ classifiers = [
     ]
 dependencies = [
     "numpy",
-    "pyvista==0.41.1",
+    "pyvista",
     "scipy",
     "matplotlib",
     "gmsh",
