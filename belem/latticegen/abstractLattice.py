@@ -37,7 +37,7 @@ class AbstractLattice(ABC):
         self.cell_size = cell_size
         self.center = center
 
-        self.rve = Rve(dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size, center=self.center)
+        self.rve = Rve(dim=self.cell_size, center=self.center)
 
         self.vertices = self._compute_vertices()
         self.strut_centers = self._compute_strut_centers()
