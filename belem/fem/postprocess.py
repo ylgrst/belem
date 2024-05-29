@@ -1,5 +1,5 @@
 import numpy as np
-import numpy.typings as npt
+import numpy.typing as npt
 import fedoo as fd
 import matplotlib.pyplot as plt
 
