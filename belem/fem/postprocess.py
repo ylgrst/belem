@@ -52,8 +52,9 @@ def diagonalize_stress_tensor(voigt_stress_tensor: npt.NDArray[np.float_]) -> np
                 stress_tensor[j, i] = stress_tensor[i, j]
 
     eigenvalues, _ = np.linalg.eig(stress_tensor)
+    diag = np.sort(abs(eigenvalues))[::-1]
 
-    return eigenvalues
+    return diag
 
 
 def compute_principal_stresses(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
@@ -139,13 +140,13 @@ def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.N
 
     plot_data_s11 = [stress_at_plastic_strain_threshold_tension[0],
                      stress_at_plastic_strain_threshold_biaxial_tension[0], 0.0,
-                     -stress_at_plastic_strain_threshold_shear[0], stress_at_plastic_strain_threshold_compression[0],
-                     stress_at_plastic_strain_threshold_biaxial_compression[0], 0.0,
+                     -stress_at_plastic_strain_threshold_shear[0], -stress_at_plastic_strain_threshold_compression[0],
+                     -stress_at_plastic_strain_threshold_biaxial_compression[0], 0.0,
                      stress_at_plastic_strain_threshold_shear[0], stress_at_plastic_strain_threshold_tension[0]]
     plot_data_s22 = [0.0, stress_at_plastic_strain_threshold_biaxial_tension[1],
-                     stress_at_plastic_strain_threshold_tension[0], -stress_at_plastic_strain_threshold_shear[1], 0.0,
-                     stress_at_plastic_strain_threshold_biaxial_compression[1],
-                     -stress_at_plastic_strain_threshold_tension[0], stress_at_plastic_strain_threshold_shear[1], 0.0]
+                     stress_at_plastic_strain_threshold_tension[0], stress_at_plastic_strain_threshold_shear[1], 0.0,
+                     -stress_at_plastic_strain_threshold_biaxial_compression[1],
+                     -stress_at_plastic_strain_threshold_tension[0], -stress_at_plastic_strain_threshold_shear[1], 0.0]
 
     return plot_data_s11, plot_data_s22
 
