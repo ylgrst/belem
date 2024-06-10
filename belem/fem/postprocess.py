@@ -121,7 +121,7 @@ def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.N
 
 def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
-                               shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
+                               tencomp_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                biaxial_compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
@@ -135,25 +135,25 @@ def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.N
         biaxial_tension_data[1], biaxial_tension_data[0], plasticity_threshold)
     stress_at_plastic_strain_threshold_biaxial_compression = get_stress_strain_at_plasticity_threshold(
         biaxial_compression_data[1], biaxial_compression_data[0], plasticity_threshold)
-    stress_at_plastic_strain_threshold_shear = get_stress_strain_at_plasticity_threshold(shear_data[1], shear_data[0],
+    stress_at_plastic_strain_threshold_tencomp = get_stress_strain_at_plasticity_threshold(tencomp_data[1], tencomp_data[0],
                                                                                          plasticity_threshold)
 
     plot_data_s11 = [stress_at_plastic_strain_threshold_tension[0],
                      stress_at_plastic_strain_threshold_biaxial_tension[0], 0.0,
-                     -stress_at_plastic_strain_threshold_shear[0], -stress_at_plastic_strain_threshold_compression[0],
+                     -stress_at_plastic_strain_threshold_tencomp[0], -stress_at_plastic_strain_threshold_compression[0],
                      -stress_at_plastic_strain_threshold_biaxial_compression[0], 0.0,
-                     stress_at_plastic_strain_threshold_shear[0], stress_at_plastic_strain_threshold_tension[0]]
+                     stress_at_plastic_strain_threshold_tencomp[0], stress_at_plastic_strain_threshold_tension[0]]
     plot_data_s22 = [0.0, stress_at_plastic_strain_threshold_biaxial_tension[1],
-                     stress_at_plastic_strain_threshold_tension[0], stress_at_plastic_strain_threshold_shear[1], 0.0,
+                     stress_at_plastic_strain_threshold_tension[0], stress_at_plastic_strain_threshold_tencomp[1], 0.0,
                      -stress_at_plastic_strain_threshold_biaxial_compression[1],
-                     -stress_at_plastic_strain_threshold_tension[0], -stress_at_plastic_strain_threshold_shear[1], 0.0]
+                     -stress_at_plastic_strain_threshold_tension[0], -stress_at_plastic_strain_threshold_tencomp[1], 0.0]
 
     return plot_data_s11, plot_data_s22
 
 
 def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
-                       shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
+                       tencomp_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        biaxial_compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        plasticity_threshold: float, figname: str = "stress_at_Ep.png") -> None:
@@ -171,7 +171,7 @@ def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[n
     ax.xaxis.set_label_coords(1.05, 0.45)
     ax.yaxis.set_label_coords(0.45, 1.05)
 
-    plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, shear_data,
+    plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
                                                               compression_data, biaxial_compression_data,
                                                               plasticity_threshold)
 
@@ -182,7 +182,7 @@ def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[n
 
 def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                  biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
-                                 shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
+                                 tencomp_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                  compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                  biaxial_compression_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                  plasticity_threshold_list: list[float], figname: str = "yield_surface_evolution.png") -> None:
@@ -202,7 +202,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
     ax.yaxis.set_label_coords(0.45, 1.05)
 
     for plasticity_threshold in plasticity_threshold_list:
-        plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, shear_data,
+        plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
                                                                   compression_data, biaxial_compression_data,
                                                                   plasticity_threshold)
         plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
