@@ -209,3 +209,21 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
 
     plt.legend()
     plt.savefig(figname)
+
+def plot_clipped_vm_plastic_strain(dataset: fd.DataSet, threshold: float, figname: str) -> None:
+    """Plots the Von Mises plastic strain in a mesh, clipped by threshold, at the end of a simulation"""
+    dataset.load(-1)
+    canvas_mesh = dataset.mesh.to_pyvista()
+    mesh = canvas_mesh
+    edges = mesh.extract_feature_edges()
+    pl = pv.Plotter()
+    pl.add_mesh(canvas_mesh, color="lightblue", opacity=0.1)
+    pl.add_mesh(edges, color="black", line_width=3)
+    data_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
+    data_vm_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_Ep)[1])])
+    node_data_vm_Ep = dataset.mesh.convert_data(data=data_vm_Ep, convert_from="GaussPoint", convert_to="Node", n_elm_gp=4)
+    mesh.point_data['vm_plastic_strain'] = node_data_vm_Ep
+    clipped = mesh.clip_scalar(scalars='vm_plastic_strain', invert=False, value=threshold)
+    pl.add_mesh(clipped, cmap="YlOrRd")
+    pl.add_axes()
+    pl.screenshot(figname)
