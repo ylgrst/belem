@@ -202,10 +202,13 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
     ax.yaxis.set_label_coords(0.45, 1.05)
 
     for plasticity_threshold in plasticity_threshold_list:
-        plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
-                                                                  compression_data, biaxial_compression_data,
-                                                                  plasticity_threshold)
-        plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
+        try:
+            plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
+                                                                    compression_data, biaxial_compression_data,
+                                                                    plasticity_threshold)
+            plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
+        except:
+            print("Plasticity threshold ", plasticity_threshold, " not reached.")
 
     plt.legend()
     plt.savefig(figname)
