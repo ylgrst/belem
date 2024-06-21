@@ -118,14 +118,16 @@ def compute_average_stress_tensor(dataset: fd.DataSet) -> npt.NDArray[np.float_]
     rve_volume = dataset.mesh.bounding_box.volume
     density = mesh_volume / rve_volume
     n_iter = dataset.n_iter
+    stress_array = np.zeros((6, n_iter))
     for i in range(n_iter):
         dataset.load(i)
-        stress_array = np.zeros(6)
+        stress = np.zeros(6)
         for component in component_list:
             data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
             vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
                                                                                     type_field="GaussPoint")
-            stress_array[component_to_voigt[component]] = vol_avg_stress
+            stress[component_to_voigt[component]] = vol_avg_stress
+        stress_array[:, i] = stress
 
     return stress_array
 
