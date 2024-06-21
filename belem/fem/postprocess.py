@@ -270,9 +270,9 @@ def compute_quadratic_hill_params(tension_data: tuple[npt.NDArray[np.float_], np
 
     plasticity_threshold = 0.2
     sigma_yield_11 = get_stress_strain_at_plasticity_threshold(tension_data[1], tension_data[0], plasticity_threshold)[0]
-    sigma_yield_22 = get_stress_strain_at_plasticity_threshold(biaxial_tension_data[1], biaxial_tension_data[0], plasticity_threshold)
+    sigma_yield_22 = get_stress_strain_at_plasticity_threshold(biaxial_tension_data[1], biaxial_tension_data[0], plasticity_threshold)[1]
     sigma_yield_33 = sigma_yield_11
-    tau_yield_12 = get_stress_strain_at_plasticity_threshold(shear_data[1], shear_data[0], plasticity_threshold)
+    tau_yield_12 = get_stress_strain_at_plasticity_threshold(shear_data[1], shear_data[0], plasticity_threshold)[0]
     tau_yield_13 = tau_yield_12
     tau_yield_23 = tau_yield_12
 
