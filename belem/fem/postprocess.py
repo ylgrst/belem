@@ -291,7 +291,7 @@ def compute_hill_yield_surface_data(hill_params: npt.NDArray[np.float_], tension
     theta_array = np.linspace(0, 2*np.pi, 1000)
     r_list = []
     F, G, H, L, M, N = hill_params
-    avg_sigma = compute_von_mises_stress(tension_dataset)
+    avg_sigma = get_stress_strain_at_plasticity_threshold(compute_average_stress_tensor(tension_dataset), compute_von_mises_plastic_strain(tension_dataset), plasticity_threshold=0.2)
     sigma_eq = sim.Hill_stress(avg_sigma, hill_params)
     for theta in theta_array:
         mat = np.array([[np.cos(theta), np.sin(theta), 0.0],
