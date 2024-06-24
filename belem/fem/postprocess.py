@@ -298,7 +298,7 @@ def compute_hill_yield_surface_data(hill_params: npt.NDArray[np.float_], tension
                         [-np.sin(theta), np.cos(theta), 0.0],
                         [0.0, 0.0, 0.0]])
         def func(r: float) -> float:
-            val = F*(r*mat[1,1] - r*mat[22])**2 + G*(r*mat[2,2] - r*mat[0,0])**2 + H*(r*mat[0,0] - r*mat[1,1])**2 + 2*L*(r*mat[1,2])**2 + 2*M*(r*mat[2,0])**2 + 2*N*(r*mat[0,1])**2 - 1.0
+            val = F*(r*mat[1,1] - r*mat[2,2])**2 + G*(r*mat[2,2] - r*mat[0,0])**2 + H*(r*mat[0,0] - r*mat[1,1])**2 + 2*L*(r*mat[1,2])**2 + 2*M*(r*mat[2,0])**2 + 2*N*(r*mat[0,1])**2 - 1.0
             return val
         result = fsolve(func(r), sigma_eq)
         r_list.append(result)
