@@ -2,8 +2,10 @@ import numpy as np
 import numpy.typing as npt
 import fedoo as fd
 import matplotlib.pyplot as plt
+import math as m
 from simcoon import simmit as sim
 from scipy.optimize import fsolve
+import pyvista as pv
 
 
 def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, max_strain: np.float_ = 0.05) -> dict[
@@ -104,12 +106,19 @@ def create_plastic_strain_and_principal_stress_data(dataset: fd.DataSet) -> tupl
 
 
 def get_stress_strain_at_plasticity_threshold(stress_array: npt.NDArray[np.float_],
-                                              plasticity_array: npt.NDArray[np.float_], plasticity_threshold: float):
+                                              plasticity_array: npt.NDArray[np.float_], plasticity_threshold: float) -> npt.NDArray[np.float_]:
     """Fetches point in stress-strain curve where set plasticity threshold is reached"""
     index = next(idx for idx, plasticity in enumerate(plasticity_array) if plasticity > plasticity_threshold)
     stress = stress_array[:, index]
 
     return stress
+
+def get_vm_stress_at_plasticity_threshold(vm_stress_array: npt.NDArray[np.float_], vm_plasticity_array: npt.NDArray[np.float_], plasticity_threshold: float) -> float:
+    index = next(idx for idx, plasticity in enumerate(vm_plasticity_array) if plasticity > plasticity_threshold)
+    vm_stress = vm_stress_array[index]
+
+    return vm_stress
+
 
 def compute_average_stress_tensor(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
     component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
@@ -253,7 +262,7 @@ def plot_clipped_vm_plastic_strain(dataset: fd.DataSet, threshold: float, fignam
     canvas_mesh = dataset.mesh.to_pyvista()
     mesh = canvas_mesh
     edges = mesh.extract_feature_edges()
-    pl = pv.Plotter()
+    pl = pv.Plotter(off_screen=True)
     pl.add_mesh(canvas_mesh, color="lightblue", opacity=0.1)
     pl.add_mesh(edges, color="black", line_width=3)
     data_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
@@ -287,23 +296,44 @@ def compute_quadratic_hill_params(tension_data: tuple[npt.NDArray[np.float_], np
 
     return np.array([F, G, H, L, M, N])
 
+def compute_hill_equivalent_stress(hill_params: npt.NDArray, stress_vector: npt.NDArray) -> float:
+    F, G, H, L, M, N = hill_params
+    mat = np.array([[H+G, -H, -G, 0.0, 0.0, 0.0],
+                    [-H, F+H, -F, 0.0, 0.0, 0.0],
+                    [-G, -F, F+G, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, N, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, M, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, L]
+                    ])
+    sigma_eq_squared = (3/2) * stress_vector @ mat @ stress_vector
+
+    return m.sqrt(sigma_eq_squared)
+
 def compute_hill_yield_surface_data(hill_params: npt.NDArray[np.float_], tension_dataset: fd.DataSet) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
     theta_array = np.linspace(0, 2*np.pi, 1000)
     r_list = []
     F, G, H, L, M, N = hill_params
+    hill_mat = np.array([[H+G, -H, -G, 0.0, 0.0, 0.0],
+                    [-H, F+H, -F, 0.0, 0.0, 0.0],
+                    [-G, -F, F+G, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, N, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, M, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, L]
+                    ])
     avg_sigma = get_stress_strain_at_plasticity_threshold(compute_average_stress_tensor(tension_dataset), compute_von_mises_plastic_strain(tension_dataset), plasticity_threshold=0.2)
-    sigma_eq = sim.Hill_stress(avg_sigma, hill_params)
+    sigma_eq = compute_hill_equivalent_stress(hill_params, avg_sigma)
+    sigma_y = get_vm_stress_at_plasticity_threshold(compute_von_mises_stress(tension_dataset), compute_von_mises_plastic_strain(tension_dataset), 0.2)
     for theta in theta_array:
         mat = np.array([[np.cos(theta), np.sin(theta), 0.0],
                         [-np.sin(theta), np.cos(theta), 0.0],
                         [0.0, 0.0, 0.0]])
-        def func(r: float) -> float:
-            val = F*(r*mat[1,1] - r*mat[2,2])**2 + G*(r*mat[2,2] - r*mat[0,0])**2 + H*(r*mat[0,0] - r*mat[1,1])**2 + 2*L*(r*mat[1,2])**2 + 2*M*(r*mat[2,0])**2 + 2*N*(r*mat[0,1])**2 - 1.0
-            return val
-        result = fsolve(func(r), sigma_eq)
+        stress_vector_theta = np.array([mat[0,0], mat[1,1], mat[2,2], mat[0,1], mat[0,2], mat[1,2]])
+        func = lambda r: F*(r*mat[1,1] - r*mat[2,2])**2 + G*(r*mat[2,2] - r*mat[0,0])**2 + H*(r*mat[0,0] - r*mat[1,1])**2 + 2*L*(r*mat[1,2])**2 + 2*M*(r*mat[2,0])**2 + 2*N*(r*mat[0,1])**2 - 1.0
+        #func = lambda r: (3/2)*(r*stress_vector_theta) @ hill_mat @ (r*stress_vector_theta) - sigma_y**2
+        result = fsolve(func, sigma_eq)
         r_list.append(result)
 
-    return np.asarray(r_list), theta_array
+    return np.asarray(r_list)[:,0], theta_array
 
 def plot_hill_yield_surface(r_array: npt.NDArray[np.float_], theta_array: npt.NDArray[np.float_], figname="hill_yield.png") -> None:
     x = r_array * np.cos(theta_array)
