@@ -336,6 +336,38 @@ def predict_hill_parameters(yield_surface_data_s11: npt.NDArray[np.float_],
     sigma_Hill_eq_ident = minimize(mse_over_all_sim_points, p_guess, method='SLSQP')
     return sigma_Hill_eq_ident.x
 
+def predict_hill_shear_parameters(shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]], tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]], plasticity_threshold: float) -> list[float]:
+
+    sigma = np.zeros(6)
+    stress_at_plastic_strain_threshold_shear = get_stress_strain_at_plasticity_threshold(shear_data[1],
+                                                                                           shear_data[0],
+                                                                                           plasticity_threshold)
+    stress_at_plastic_strain_threshold_tension = get_stress_strain_at_plasticity_threshold(tension_data[1],
+                                                                                         tension_data[0],
+                                                                                         plasticity_threshold)
+    sim_points = [stress_at_plastic_strain_threshold_shear[0]]
+    func = lambda sigma_eq: (sim.Mises_stress(sigma) - sigma_eq) ** 2
+
+    def mse_over_all_sim_points(sigma_eq):
+        ypred = 0.0
+        for point in sim_points:
+            sigma[3] = point[0]
+            ypred += func(sigma_eq)
+        return ypred / len(sim_points)
+
+    sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP').x[0]
+    func2 = lambda p: (sim.Hill_stress(sigma, p) - sigma_eq_ident) ** 2
+    p_guess = np.array([0.5, 0.5, 0.5, 3.0, 3.0, 3.0])
+
+    def mse_over_all_sim_points(p):
+        ypred = 0.0
+        for point in sim_points:
+            sigma[3] = point[0]
+            ypred += func2(p)
+        return ypred / len(sim_points)
+
+    sigma_Hill_eq_ident = minimize(mse_over_all_sim_points, p_guess, method='SLSQP')
+    return sigma_Hill_eq_ident.x
 
 def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
                             yield_surface_data_s11: npt.NDArray[np.float_],
@@ -380,6 +412,7 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
 
 
 def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_params: list[list[float]],
+                                      list_sigma_guess: list[float], plasticity_threshold_list = list[float],
                                       figname="hill_yield_surface_evolution.png") -> None:
     inc = 1001
 
@@ -405,12 +438,17 @@ def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_p
     for i in range(len(list_sigma_eq_vm)):
         result = np.zeros(inc)
 
-        for i in range(0, inc):
-            sigma[0] = sigma_11[i]
-            sigma[1] = sigma_22[i]
-            func = lambda seq: abs(seq * sim.Hill_stress(sigma, list_hill_params[i]) - list_sigma_eq_vm[i])
-            res = minimize(func, yield_surface_data_s11[0], method='SLSQP')
-            result[i] = res.x[0]
+        for j in range(0, inc):
+            sigma[0] = sigma_11[j]
+            sigma[1] = sigma_22[j]
+            func = lambda seq: abs(seq * sim.Hill_stress(sigma, list_hill_params[j]) - list_sigma_eq_vm[j])
+            res = minimize(func, list_sigma_guess[i], method='SLSQP')
+            result[j] = res.x[0]
 
         x = result * np.cos(theta_array)
         y = result * np.sin(theta_array)
+
+        plt.plot(x, y, "--", label=r"$\epsilon^{p}$ " + str(plasticity_threshold_list) + "%")
+
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
