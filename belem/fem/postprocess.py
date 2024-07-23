@@ -6,6 +6,7 @@ import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize
 import pyvista as pv
+from typing import Optional
 
 
 def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, max_strain: np.float_ = 0.05) -> dict[
@@ -42,6 +43,21 @@ def compute_von_mises_stress(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
         vm_stress_array[i] = vol_avg_stress
 
     return vm_stress_array
+
+
+def compute_von_mises_strain(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+    """Returns von mises strain array"""
+    mesh_volume = dataset.mesh.to_pyvista().volume
+    n_iter = dataset.n_iter
+    strain_array = np.zeros(n_iter)
+    for i in range(n_iter):
+        dataset.load(i)
+        data_Ep = dataset.get_data(field="Strain", data_type="GaussPoint")
+        data_vm_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_Ep)[1])])
+        vol_avg_vm_Ep = dataset.mesh.integrate_field(field=data_vm_Ep, type_field="GaussPoint") / mesh_volume
+        strain_array[i] = 100 * vol_avg_vm_Ep
+
+    return strain_array
 
 
 def compute_von_mises_plastic_strain(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
@@ -98,6 +114,65 @@ def compute_principal_stresses(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
         principal_stresses_array[:, i] = principal_stresses
 
     return principal_stresses_array
+
+
+def compute_all_arrays_from_data_fields(dataset: fd.DataSet, component: Optional[str]) -> dict[str, npt.NDArray[np.float_]]:
+    """Returns average stress and strain arrays, von mises stress array, von mises strain array,
+    von mises plastic strain array, principal stresses arrays
+    :param component: stress array component (optional)
+    """
+
+    mesh_volume = dataset.mesh.to_pyvista().volume
+    rve_volume = dataset.mesh.bounding_box.volume
+    density = mesh_volume / rve_volume
+    n_iter = dataset.n_iter
+    stress_array = np.zeros(n_iter)
+    vm_stress_array = np.zeros(n_iter)
+    strain_array = np.zeros(n_iter)
+    plastic_strain_array = np.zeros(n_iter)
+    principal_stresses_array = np.zeros((3, n_iter))
+    output_dict = {}
+    for i in range(n_iter):
+        dataset.load(i)
+        if component is not None:
+            data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+            vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
+                                                                                type_field="GaussPoint")
+            stress_array[i] = vol_avg_stress
+
+        data_vm_stress = dataset.get_data(field="Stress", component="vm", data_type="GaussPoint")
+        vol_avg_vm_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_vm_stress,
+                                                                                type_field="GaussPoint")
+        vm_stress_array[i] = vol_avg_vm_stress
+
+        data_Ep = dataset.get_data(field="Strain", data_type="GaussPoint")
+        data_vm_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_Ep)[1])])
+        vol_avg_vm_Ep = dataset.mesh.integrate_field(field=data_vm_Ep, type_field="GaussPoint") / mesh_volume
+        strain_array[i] = 100 * vol_avg_vm_Ep
+
+        data_plastic_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
+        data_vm_plastic_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_plastic_Ep)[1])])
+        vol_avg_vm_plastic_Ep = dataset.mesh.integrate_field(field=data_vm_plastic_Ep, type_field="GaussPoint") / mesh_volume
+        plastic_strain_array[i] = 100 * vol_avg_vm_plastic_Ep
+
+        stress_components_array = np.zeros(6)
+        component_list = ["XX", "YY", "ZZ", "XY", "XZ", "YZ"]
+        component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
+        for component in component_list:
+            data_stress_components = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+            vol_avg_stress_components = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress_components,
+                                                                                    type_field="GaussPoint")
+            stress_components_array[component_to_voigt[component]] = vol_avg_stress_components
+        principal_stresses = diagonalize_stress_tensor(stress_components_array)
+        principal_stresses_array[:, i] = principal_stresses
+
+    if component is not None:
+        output_dict["stress_component"] = stress_array
+    output_dict["vm_stress"] = vm_stress_array
+    output_dict["vm_strain"] = strain_array
+    output_dict["vm_plastic_strain"] = plastic_strain_array
+    output_dict["principal_stresses"] = principal_stresses_array
+    return output_dict
 
 
 def create_plastic_strain_and_principal_stress_data(dataset: fd.DataSet) -> tuple[
@@ -336,38 +411,42 @@ def predict_hill_parameters(yield_surface_data_s11: npt.NDArray[np.float_],
     sigma_Hill_eq_ident = minimize(mse_over_all_sim_points, p_guess, method='SLSQP')
     return sigma_Hill_eq_ident.x
 
-def predict_hill_shear_parameters(shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]], tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]], plasticity_threshold: float) -> list[float]:
 
+def predict_hill_shear_parameters(shear_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
+                                  tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
+                                  plasticity_threshold: float) -> list[float]:
     sigma = np.zeros(6)
     stress_at_plastic_strain_threshold_shear = get_stress_strain_at_plasticity_threshold(shear_data[1],
-                                                                                           shear_data[0],
-                                                                                           plasticity_threshold)
-    stress_at_plastic_strain_threshold_tension = get_stress_strain_at_plasticity_threshold(tension_data[1],
-                                                                                         tension_data[0],
+                                                                                         shear_data[0],
                                                                                          plasticity_threshold)
+    stress_at_plastic_strain_threshold_tension = get_stress_strain_at_plasticity_threshold(tension_data[1],
+                                                                                           tension_data[0],
+                                                                                           plasticity_threshold)
     sim_points = [stress_at_plastic_strain_threshold_shear[0]]
     func = lambda sigma_eq: (sim.Mises_stress(sigma) - sigma_eq) ** 2
 
     def mse_over_all_sim_points(sigma_eq):
         ypred = 0.0
         for point in sim_points:
-            sigma[3] = point[0]
+            sigma[3] = point
             ypred += func(sigma_eq)
         return ypred / len(sim_points)
 
-    sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP').x[0]
+    sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP').x[
+        0]
     func2 = lambda p: (sim.Hill_stress(sigma, p) - sigma_eq_ident) ** 2
     p_guess = np.array([0.5, 0.5, 0.5, 3.0, 3.0, 3.0])
 
     def mse_over_all_sim_points(p):
         ypred = 0.0
         for point in sim_points:
-            sigma[3] = point[0]
+            sigma[3] = point
             ypred += func2(p)
         return ypred / len(sim_points)
 
     sigma_Hill_eq_ident = minimize(mse_over_all_sim_points, p_guess, method='SLSQP')
     return sigma_Hill_eq_ident.x
+
 
 def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
                             yield_surface_data_s11: npt.NDArray[np.float_],
@@ -412,7 +491,7 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
 
 
 def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_params: list[list[float]],
-                                      list_sigma_guess: list[float], plasticity_threshold_list = list[float],
+                                      list_sigma_guess: list[float], plasticity_threshold_list=list[float],
                                       figname="hill_yield_surface_evolution.png") -> None:
     inc = 1001
 
