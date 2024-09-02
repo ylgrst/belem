@@ -19,8 +19,10 @@ def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, ma
     stress_array = np.zeros(n_iter)
     strain_array = 100 * np.linspace(0, max_strain, 101)
     if cycle:
-        relax_array = strain_array[::-1].delete(0)
+        relax_array = strain_array[::-1]
+        np.delete(relax_array, 0)
         reload_array = strain_array.delete(0)
+        np.delete(reload_array, 0)
         np.append(strain_array,np.append(relax_array, reload_array))
     for i in range(n_iter):
         dataset.load(i)
@@ -338,7 +340,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
             plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
                                                                       compression_data, biaxial_compression_data,
                                                                       plasticity_threshold)
-            plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
+            plt.plot(plot_data_s11, plot_data_s22, "o--", lcomabel=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
         except:
             print("Plasticity threshold ", plasticity_threshold, " not reached.")
 
