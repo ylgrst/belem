@@ -9,7 +9,7 @@ import pyvista as pv
 from typing import Optional
 
 
-def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, max_strain: np.float_ = 0.05) -> dict[
+def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[
     str, npt.NDArray[np.float_]]:
     """Returns average stress and strain arrays"""
     mesh_volume = dataset.mesh.to_pyvista().volume
@@ -18,6 +18,10 @@ def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, ma
     n_iter = dataset.n_iter
     stress_array = np.zeros(n_iter)
     strain_array = 100 * np.linspace(0, max_strain, 101)
+    if cycle:
+        relax_array = strain_array[::-1].delete(0)
+        reload_array = strain_array.delete(0)
+        np.append(strain_array,np.append(relax_array, reload_array))
     for i in range(n_iter):
         dataset.load(i)
         data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
