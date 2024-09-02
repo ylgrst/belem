@@ -21,8 +21,7 @@ def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, ma
     if cycle:
         relax_array = strain_array[::-1]
         np.delete(relax_array, 0)
-        reload_array = strain_array.delete(0)
-        np.delete(reload_array, 0)
+        reload_array = np.delete(strain_array, 0)
         np.append(strain_array,np.append(relax_array, reload_array))
     for i in range(n_iter):
         dataset.load(i)
