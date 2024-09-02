@@ -20,9 +20,10 @@ def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, ma
     strain_array = 100 * np.linspace(0, max_strain, 101)
     if cycle:
         relax_array = strain_array[::-1]
-        np.delete(relax_array, 0)
+        relax_array = np.delete(relax_array, 0)
         reload_array = np.delete(strain_array, 0)
-        np.append(strain_array,np.append(relax_array, reload_array))
+        relax_reload_array = np.append(relax_array, reload_array)
+        strain_array = np.append(strain_array, relax_reload_array)
     for i in range(n_iter):
         dataset.load(i)
         data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
