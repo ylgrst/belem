@@ -6,10 +6,17 @@ import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize
 import pyvista as pv
-from typing import Optional
+from typing import Optional, Union
+import time
+from multiprocessing import Pool
+from concurrent import futures
+from collections import namedtuple
+from functools import partial
+
+IterResults = namedtuple('IterResults', ['stress', 'vm_stress', 'vm_strain', 'plastic_strain', 'p_stresses'])
 
 
-def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[
+def compute_average_stress_strain_arrays(dataset: fd.MultiFrameDataSet, component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[
     str, npt.NDArray[np.float_]]:
     """Returns average stress and strain arrays"""
     mesh_volume = dataset.mesh.to_pyvista().volume
@@ -34,7 +41,7 @@ def compute_average_stress_strain_arrays(dataset: fd.DataSet, component: str, n_
     return {"strain": strain_array, "stress": stress_array}
 
 
-def compute_von_mises_stress(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+def compute_von_mises_stress(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.float_]:
     """Returns von mises stress"""
     mesh_volume = dataset.mesh.to_pyvista().volume
     rve_volume = dataset.mesh.bounding_box.volume
@@ -51,7 +58,7 @@ def compute_von_mises_stress(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
     return vm_stress_array
 
 
-def compute_von_mises_strain(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+def compute_von_mises_strain(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.float_]:
     """Returns von mises strain array"""
     mesh_volume = dataset.mesh.to_pyvista().volume
     n_iter = dataset.n_iter
@@ -66,7 +73,7 @@ def compute_von_mises_strain(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
     return strain_array
 
 
-def compute_von_mises_plastic_strain(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+def compute_von_mises_plastic_strain(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.float_]:
     """Returns von mises plastic strain array"""
     mesh_volume = dataset.mesh.to_pyvista().volume
     n_iter = dataset.n_iter
@@ -99,7 +106,7 @@ def diagonalize_stress_tensor(voigt_stress_tensor: npt.NDArray[np.float_]) -> np
     return diag
 
 
-def compute_principal_stresses(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+def compute_principal_stresses(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.float_]:
     """Returns principal stresses arrays"""
     component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
     component_list = ["XX", "YY", "ZZ", "XY", "XZ", "YZ"]
@@ -122,17 +129,16 @@ def compute_principal_stresses(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
     return principal_stresses_array
 
 
-def compute_all_arrays_from_data_fields(dataset: fd.DataSet, component: Optional[str], n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[str, npt.NDArray[np.float_]]:
+def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[str, npt.NDArray[np.float_]]:
     """Returns average stress and strain arrays, von mises stress array, von mises strain array,
     von mises plastic strain array, principal stresses arrays
-    :param component: stress array component (optional)
+    :param component: stress array component
     """
-
     mesh_volume = dataset.mesh.to_pyvista().volume
     rve_volume = dataset.mesh.bounding_box.volume
     density = mesh_volume / rve_volume
     n_iter = dataset.n_iter
-    strain_array = 100 * np.linspace(0, max_strain, n_incr + 1)
+    strain_array = 100 * np.linspace(0, max_strain, int(n_incr + 1))
     if cycle:
         relax_array = strain_array[::-1]
         relax_array = np.delete(relax_array, 0)
@@ -147,11 +153,10 @@ def compute_all_arrays_from_data_fields(dataset: fd.DataSet, component: Optional
     output_dict = {}
     for i in range(n_iter):
         dataset.load(i)
-        if component is not None:
-            data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
-            vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
+        data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+        vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
                                                                                 type_field="GaussPoint")
-            stress_array[i] = vol_avg_stress
+        stress_array[i] = vol_avg_stress
 
         data_vm_stress = dataset.get_data(field="Stress", component="vm", data_type="GaussPoint")
         vol_avg_vm_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_vm_stress,
@@ -171,16 +176,15 @@ def compute_all_arrays_from_data_fields(dataset: fd.DataSet, component: Optional
         stress_components_array = np.zeros(6)
         component_list = ["XX", "YY", "ZZ", "XY", "XZ", "YZ"]
         component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
-        for component in component_list:
-            data_stress_components = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+        for comp in component_list:
+            data_stress_components = dataset.get_data(field="Stress", component=comp, data_type="GaussPoint")
             vol_avg_stress_components = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress_components,
                                                                                     type_field="GaussPoint")
-            stress_components_array[component_to_voigt[component]] = vol_avg_stress_components
+            stress_components_array[component_to_voigt[comp]] = vol_avg_stress_components
         principal_stresses = diagonalize_stress_tensor(stress_components_array)
         principal_stresses_array[:, i] = principal_stresses
 
-    if component is not None:
-        output_dict["stress_component"] = stress_array
+    output_dict["stress_component"] = stress_array
     output_dict["strain"] = strain_array
     output_dict["vm_stress"] = vm_stress_array
     output_dict["vm_strain"] = vm_strain_array
@@ -188,8 +192,83 @@ def compute_all_arrays_from_data_fields(dataset: fd.DataSet, component: Optional
     output_dict["principal_stresses"] = principal_stresses_array
     return output_dict
 
-def separate_tension_cycle_data(tension_cycle_dataset: fd.DataSet, n_incr_per_cycle: int = 100, max_strain: np.float_ = 0.05) -> tuple[dict[str, npt.NDArray[np.float_]]]:
-    all_cycles_data = compute_all_arrays_from_data_fields(tension_cycle_dataset, n_incr_per_cycle, max_strain, cycle=True)
+def integrate_fields(i:int, data: Union[str, fd.MultiFrameDataSet], component: str):
+    if type(data) == str:
+        dataset = fd.read_data(data, delete_mesh=False)
+    elif type(data) == fd.MultiFrameDataSet:
+        dataset = data
+    else:
+        raise TypeError("Data format not supported (only str or fd.MultiFrameDataSet)")
+    mesh_volume = dataset.mesh.to_pyvista().volume
+    rve_volume = dataset.mesh.bounding_box.volume
+    density = mesh_volume / rve_volume
+    dataset.load(i)
+    data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+    vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
+                                                                                type_field="GaussPoint")
+
+    data_vm_stress = dataset.get_data(field="Stress", component="vm", data_type="GaussPoint")
+    vol_avg_vm_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_vm_stress,
+                                                                               type_field="GaussPoint")
+
+    data_Ep = dataset.get_data(field="Strain", data_type="GaussPoint")
+    data_vm_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_Ep)[1])])
+    vol_avg_vm_Ep = dataset.mesh.integrate_field(field=data_vm_Ep, type_field="GaussPoint") / mesh_volume
+    vol_avg_vm_Ep = 100*vol_avg_vm_Ep
+
+    data_plastic_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
+    data_vm_plastic_Ep = np.asarray(
+        [sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_plastic_Ep)[1])])
+    vol_avg_vm_plastic_Ep = dataset.mesh.integrate_field(field=data_vm_plastic_Ep,
+                                                         type_field="GaussPoint") / mesh_volume
+    vol_avg_vm_plastic_Ep = 100*vol_avg_vm_plastic_Ep
+
+    stress_components_array = np.zeros(6)
+    component_list = ["XX", "YY", "ZZ", "XY", "XZ", "YZ"]
+    component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
+    for component in component_list:
+        data_stress_components = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
+        vol_avg_stress_components = (density / mesh_volume) * dataset.mesh.integrate_field(
+            field=data_stress_components,
+            type_field="GaussPoint")
+        stress_components_array[component_to_voigt[component]] = vol_avg_stress_components
+    principal_stresses = diagonalize_stress_tensor(stress_components_array)
+    res = IterResults(vol_avg_stress, vol_avg_vm_stress, vol_avg_vm_Ep, vol_avg_vm_plastic_Ep, principal_stresses)
+
+    return res
+
+def multithread_compute_all_arrays_from_data_fields(dataset: Union[str, fd.MultiFrameDataSet], component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False, n_threads: int = 10, chunksize: int = 1):
+    strain_array = 100 * np.linspace(0, max_strain, int(n_incr + 1))
+    if cycle:
+        relax_array = strain_array[::-1]
+        relax_array = np.delete(relax_array, 0)
+        reload_array = np.delete(strain_array, 0)
+        relax_reload_array = np.append(relax_array, reload_array)
+        strain_array = np.append(strain_array, relax_reload_array)
+        n_incr *= 3
+    output_dict = {}
+
+    output_dict["strain"] = strain_array
+
+    if type(dataset) == fd.MultiFrameDataSet:
+        with futures.ThreadPoolExecutor(n_threads) as executor:
+            processed_data = executor.map(partial(integrate_fields, data=dataset, component=component), range(n_incr), chunksize=chunksize)
+        output_data = list(processed_data)
+    elif type(dataset) == str:
+        with Pool(processes=n_threads) as p:
+            processed_data = p.map(partial(integrate_fields, data=dataset, component=component), range(n_incr), chunksize=chunksize)
+        output_data = processed_data
+
+    output_dict["stress_component"] = np.asarray([output_data[i].stress for i in range(n_incr)])
+    output_dict["vm_stress"] = np.asarray([output_data[i].vm_stress for i in range(n_incr)])
+    output_dict["vm_strain"] = np.asarray([output_data[i].vm_strain for i in range(n_incr)])
+    output_dict["vm_plastic_strain"] = np.asarray([output_data[i].plastic_strain for i in range(n_incr)])
+    output_dict["principal_stresses"] = np.asarray([output_data[i].p_stresses for i in range(n_incr)])
+
+    return output_dict
+
+def separate_tension_cycle_data(tension_cycle_dataset: fd.MultiFrameDataSet, n_incr_per_cycle: int = 100, max_strain: np.float_ = 0.05) -> tuple[dict[str, npt.NDArray[np.float_]]]:
+    all_cycles_data = compute_all_arrays_from_data_fields(tension_cycle_dataset, component = "XX", n_incr=n_incr_per_cycle, max_strain=max_strain, cycle=True)
     tcycle_tension_data = {}
     tcycle_compression_data = {}
     t_cycle_reload_data = {}
@@ -219,10 +298,11 @@ def plot_separated_tension_cycle(tcycle_tension_data: dict[str, npt.NDArray[np.f
     plot_stress_strain(tcycle_reload_data["vm_stress"], tcycle_reload_data["vm_strain"], "cycle_reload_3_vm_stress_vm_strain.png")
     plot_hardening(tcycle_reload_data["vm_stress"], tcycle_reload_data["vm_plastic_strain"], "cycle_reload_3_hardening")
 
-def find_hardening_type(tcycle_tension_data: dict[str, npt.NDArray[np.float_]], tcycle_compression_data: dict[str, npt.NDArray[np.float_]])
+def find_hardening_type(tcycle_tension_data: dict[str, npt.NDArray[np.float_]], tcycle_compression_data: dict[str, npt.NDArray[np.float_]]) -> str:
+    ...
 
 
-def create_plastic_strain_and_principal_stress_data(dataset: fd.DataSet) -> tuple[
+def create_plastic_strain_and_principal_stress_data(dataset: fd.MultiFrameDataSet) -> tuple[
     npt.NDArray[np.float_], npt.NDArray[np.float_]]:
     p_stresses = compute_principal_stresses(dataset)
     vm_plastic_strain = compute_von_mises_plastic_strain(dataset)
@@ -249,7 +329,7 @@ def get_vm_stress_at_plasticity_threshold(vm_stress_array: npt.NDArray[np.float_
     return vm_stress
 
 
-def compute_average_stress_tensor(dataset: fd.DataSet) -> npt.NDArray[np.float_]:
+def compute_average_stress_tensor(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.float_]:
     component_to_voigt: dict[str, int] = {"XX": 0, "YY": 1, "ZZ": 2, "XY": 3, "XZ": 4, "YZ": 5}
     component_list = ["XX", "YY", "ZZ", "XY", "XZ", "YZ"]
     mesh_volume = dataset.mesh.to_pyvista().volume
@@ -389,7 +469,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
     plt.savefig(figname)
 
 
-def plot_clipped_vm_plastic_strain(dataset: fd.DataSet, global_plasticity_threshold: float,
+def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plasticity_threshold: float,
                                    local_plasticity_threshold: float, figname: str) -> None:
     """Plots the Von Mises plastic strain in a mesh, clipped by local plasticity threshold (given in %),
     at simulation increment corresponding to set global plasticity threshold (given in %)"""
