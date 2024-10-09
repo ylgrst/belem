@@ -12,6 +12,7 @@ from multiprocessing import Pool
 from concurrent import futures
 from collections import namedtuple
 from functools import partial
+from tqdm import tqdm
 
 IterResults = namedtuple('IterResults', ['stress', 'vm_stress', 'vm_strain', 'plastic_strain', 'p_stresses'])
 
@@ -151,7 +152,7 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
     plastic_strain_array = np.zeros(n_iter)
     principal_stresses_array = np.zeros((3, n_iter))
     output_dict = {}
-    for i in range(n_iter):
+    for i in tqdm(range(n_iter)):
         dataset.load(i)
         data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
         vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
@@ -461,7 +462,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
             plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
                                                                       compression_data, biaxial_compression_data,
                                                                       plasticity_threshold)
-            plt.plot(plot_data_s11, plot_data_s22, "o--", lcomabel=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
+            plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
         except:
             print("Plasticity threshold ", plasticity_threshold, " not reached.")
 
@@ -545,7 +546,12 @@ def predict_hill_shear_parameters(shear_data: tuple[npt.NDArray[np.float_], npt.
     sigma = np.zeros(6)
     stress_at_plastic_strain_threshold_shear = get_stress_strain_at_plasticity_threshold(shear_data[1],
                                                                                          shear_data[0],
+                                                                                         plasticity_threshold*2.0)
+    stress_at_half_plastic_strain_threshold_shear = get_stress_strain_at_plasticity_threshold(shear_data[1],
+                                                                                         shear_data[0],
                                                                                          plasticity_threshold)
+    print("stress at pstrain thresh: ", stress_at_plastic_strain_threshold_shear)
+    print("stress at half pstrain thresh: ", stress_at_half_plastic_strain_threshold_shear)
     stress_at_plastic_strain_threshold_tension = get_stress_strain_at_plasticity_threshold(tension_data[1],
                                                                                            tension_data[0],
                                                                                            plasticity_threshold)
@@ -559,19 +565,23 @@ def predict_hill_shear_parameters(shear_data: tuple[npt.NDArray[np.float_], npt.
             ypred += func(sigma_eq)
         return ypred / len(sim_points)
 
-    sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP').x[
-        0]
-    func2 = lambda p: (sim.Hill_stress(sigma, p) - sigma_eq_ident) ** 2
+    #sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP').x[
+    #    0]
+    sigma_eq_ident = minimize(mse_over_all_sim_points, stress_at_plastic_strain_threshold_tension[0], method='SLSQP')
+    print("sigma_eq_ident: ", sigma_eq_ident)
+    #func2 = lambda p: (sim.Hill_stress(sigma, p) - sigma_eq_ident) ** 2
+    func2 = lambda p: (sim.Hill_stress(sigma, p) - sigma_eq_ident.x[0]) ** 2
     p_guess = np.array([0.5, 0.5, 0.5, 3.0, 3.0, 3.0])
 
-    def mse_over_all_sim_points(p):
+    def mse_over_all_sim_points_p(p):
         ypred = 0.0
         for point in sim_points:
             sigma[3] = point
             ypred += func2(p)
         return ypred / len(sim_points)
 
-    sigma_Hill_eq_ident = minimize(mse_over_all_sim_points, p_guess, method='SLSQP')
+    sigma_Hill_eq_ident = minimize(mse_over_all_sim_points_p, p_guess, method='SLSQP')
+    print("sigma hill eq ident: ", sigma_Hill_eq_ident)
     return sigma_Hill_eq_ident.x
 
 
