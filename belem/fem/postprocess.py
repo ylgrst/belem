@@ -164,7 +164,7 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
         vm_strain_array[i] = 100 * vol_avg_vm_Ep
 
         data_plastic_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
-        data_vm_plastic_Ep = np.asarray([sim.Mises_strain(data_Ep[:, i]) for i in range(np.shape(data_plastic_Ep)[1])])
+        data_vm_plastic_Ep = np.asarray([sim.Mises_strain(data_plastic_Ep[:, i]) for i in range(np.shape(data_plastic_Ep)[1])])
         vol_avg_vm_plastic_Ep = dataset.mesh.integrate_field(field=data_vm_plastic_Ep, type_field="GaussPoint") / mesh_volume
         plastic_strain_array[i] = 100 * vol_avg_vm_plastic_Ep
 
@@ -297,6 +297,32 @@ def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.N
     plt.savefig(figname)
     plt.close()
 
+def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
+    stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["stress_component"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["compression"]["stress_component"], all_results_dict["compression"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_biaxial_tension = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["biaxial_tension"]["stress_component"], all_results_dict["biaxial_tension"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_biaxial_compression = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["biaxial_compression"]["stress_component"], all_results_dict["biaxial_compression"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_tencomp = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["tencomp"]["stress_component"], all_results_dict["tencomp"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_shear = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["shear"]["stress_component"], all_results_dict["shear"]["vm_plastic_strain"], plasticity_threshold)
+
+    plot_data_s11 = [stress_at_plastic_strain_threshold_tension,
+                     stress_at_plastic_strain_threshold_biaxial_tension, 0.0,
+                     -stress_at_plastic_strain_threshold_tencomp, stress_at_plastic_strain_threshold_compression,
+                     stress_at_plastic_strain_threshold_biaxial_compression, 0.0,
+                     stress_at_plastic_strain_threshold_tencomp, stress_at_plastic_strain_threshold_tension]
+    plot_data_s22 = [0.0, stress_at_plastic_strain_threshold_biaxial_tension,
+                     stress_at_plastic_strain_threshold_tension, stress_at_plastic_strain_threshold_tencomp, 0.0,
+                     stress_at_plastic_strain_threshold_biaxial_compression,
+                     -stress_at_plastic_strain_threshold_tension, -stress_at_plastic_strain_threshold_tencomp,
+                     0.0]
+
+    return plot_data_s11, plot_data_s22
+
 
 def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -332,6 +358,29 @@ def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.N
     return plot_data_s11, plot_data_s22
 
 
+def plot_yield_surface_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float, figname: str = "stress_at_Ep.png") -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+
+    plot_data_s11, plot_data_s22 = compute_yield_surface_data_from_all_results(all_results_dict,
+                                                              plasticity_threshold)
+
+    plt.plot(plot_data_s11, plot_data_s22, "o--")
+
+    plt.savefig(figname)
+
+
 def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        tencomp_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -350,7 +399,7 @@ def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[n
     plt.xlabel(r"$\sigma_{11}$ (MPa)")
     plt.ylabel(r"$\sigma_{22}$ (MPa)")
     ax.xaxis.set_label_coords(1.05, 0.45)
-    ax.yaxis.set_label_coords(0.45, 1.05)
+    ax.yaxis.set_label_coords(0.55, 1.05)
 
     plot_data_s11, plot_data_s22 = compute_yield_surface_data(tension_data, biaxial_tension_data, tencomp_data,
                                                               compression_data, biaxial_compression_data,
@@ -358,6 +407,33 @@ def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[n
 
     plt.plot(plot_data_s11, plot_data_s22, "o--")
 
+    plt.savefig(figname)
+
+
+def plot_yield_surface_evolution_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold_list: list[float],
+                                 figname: str = "yield_surface_evolution.png") -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+
+    for plasticity_threshold in plasticity_threshold_list:
+        try:
+            plot_data_s11, plot_data_s22 = compute_yield_surface_data_from_all_results(all_results_dict, plasticity_threshold)
+            plt.plot(plot_data_s11, plot_data_s22, "o--", label=r"$\epsilon^{p} = $" + str(plasticity_threshold) + "%")
+        except:
+            print("Plasticity threshold ", plasticity_threshold, " not reached.")
+
+    plt.legend()
     plt.savefig(figname)
 
 
@@ -380,7 +456,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
     plt.xlabel(r"$\sigma_{11}$ (MPa)")
     plt.ylabel(r"$\sigma_{22}$ (MPa)")
     ax.xaxis.set_label_coords(1.05, 0.45)
-    ax.yaxis.set_label_coords(0.45, 1.05)
+    ax.yaxis.set_label_coords(0.55, 1.05)
 
     for plasticity_threshold in plasticity_threshold_list:
         try:
@@ -456,9 +532,7 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
 
     theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
     sigma_11 = np.cos(theta_array)
-    print("sigma_11: ", sigma_11)
     sigma_22 = np.sin(theta_array)
-    print("sigma_22: ", sigma_22)
     sigma = np.zeros(6)
 
     result = np.zeros(inc)
@@ -470,13 +544,8 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
         res = minimize(func, sigma_eq_vm, method='SLSQP')
         result[i] = res.x[0]
 
-    print("result: ", result)
-
     x = result * np.cos(theta_array)
     y = result * np.sin(theta_array)
-
-    print("x: ", x)
-    print("y: ", y)
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -490,7 +559,7 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
     plt.xlabel(r"$\sigma_{11}$ (MPa)")
     plt.ylabel(r"$\sigma_{22}$ (MPa)")
     ax.xaxis.set_label_coords(1.05, 0.45)
-    ax.yaxis.set_label_coords(0.43, 1.05)
+    ax.yaxis.set_label_coords(0.55, 1.05)
     plt.plot(x, y, "--", label="Hill yield surface")
     plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
