@@ -297,6 +297,60 @@ def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.N
     plt.savefig(figname)
     plt.close()
 
+def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]]) -> list[dict[str, tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]]]:
+    """USE ONLY ON STRUCTURES WITH AT LEAST CUBIC SYMMETRY"""
+    hill_data = {}
+    hill_data_stress = {}
+    hill_data_pstrain = {}
+
+    def swap_indices(array, idx1, idx2):
+        swapped_array = np.copy(array)
+        for i in range(len(array)):
+            swapped_array[i, idx1], swapped_array[i, idx2] = swapped_array[i, idx2], swapped_array[i, idx1]
+
+        return swapped_array
+
+    hill_data["tension_11"] = (all_results_dict["tension"]["stress_tensor"], all_results_dict["tension"]["vm_plastic_strain"])
+    hill_data["tension_22"] = (
+    swap_indices(all_results_dict["tension"]["stress_tensor"], 0, 1), all_results_dict["tension"]["vm_plastic_strain"])
+    hill_data["tension_33"] = (
+    swap_indices(all_results_dict["tension"]["stress_tensor"], 0, 2), all_results_dict["tension"]["vm_plastic_strain"])
+    hill_data["compression_11"] = (
+    all_results_dict["compression"]["stress_tensor"], all_results_dict["compression"]["vm_plastic_strain"])
+    hill_data["compression_22"] = (
+    swap_indices(all_results_dict["compression"]["stress_tensor"], 0, 1), all_results_dict["compression"]["vm_plastic_strain"])
+    hill_data["compression_33"] = (
+    swap_indices(all_results_dict["compression"]["stress_tensor"], 0, 2), all_results_dict["compression"]["vm_plastic_strain"])
+    hill_data["bitraction_1122"] = (
+    all_results_dict["biaxial_tension"]["stress_tensor"], all_results_dict["biaxial_tension"]["vm_plastic_strain"])
+    hill_data["bitraction_1133"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 1, 2),
+                                    all_results_dict["biaxial_tension"]["vm_plastic_strain"])
+    hill_data["bitraction_2233"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 0, 2),
+                                    all_results_dict["biaxial_tension"]["vm_plastic_strain"])
+    hill_data["bicompression_1122"] = (
+    all_results_dict["biaxial_compression"]["stress_tensor"], all_results_dict["biaxial_compression"]["vm_plastic_strain"])
+    hill_data["bicompression_1133"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 1, 2),
+                                       all_results_dict["biaxial_compression"]["vm_plastic_strain"])
+    hill_data["bicompression_2233"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 0, 2),
+                                       all_results_dict["biaxial_compression"]["vm_plastic_strain"])
+    hill_data["tencomp_1122"] = (all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["tencomp_1133"] = (
+    swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["tencomp_2233"] = (
+    swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["shear_12"] = (all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
+    hill_data["shear_13"] = (
+    swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 4), all_results_dict["shear"]["vm_plastic_strain"])
+    hill_data["shear_23"] = (
+    swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 5), all_results_dict["shear"]["vm_plastic_strain"])
+
+    for key in hill_data.keys():
+        hill_data_stress[key] = hill_data[key][0]
+        hill_data_pstrain[key] = hill_data[key][1]
+
+    return hill_data, hill_data_stress, hill_data_pstrain
+
+
 def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
     stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["stress_component"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
@@ -495,12 +549,12 @@ def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plastic
     pl.add_axes()
     pl.screenshot(figname)
 
-def predict_vm_equivalent_stress(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]]) -> float:
-    ref_vm_stress = sim.Mises_stress(get_stress_tensor_at_plasticity_threshold(stress_tensor_dict["tension_11"], plasticity_array_dict["tension_11"], 0.2))
+def predict_vm_equivalent_stress(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]], plasticity_threshold: float = 0.2) -> float:
+    ref_vm_stress = sim.Mises_stress(get_stress_tensor_at_plasticity_threshold(stress_tensor_dict["tension_11"], plasticity_array_dict["tension_11"], plasticity_threshold))
     def mse_vm_stress(sigma_eq):
         ypred = 0.0
         for load_case in stress_tensor_dict.keys():
-            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], 0.2)
+            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
             vm_stress = sim.Mises_stress(stress_tensor_at_plasticity_threshold)
             func = lambda sigma_eq: (vm_stress - sigma_eq) ** 2
             ypred += func(sigma_eq)
@@ -510,13 +564,13 @@ def predict_vm_equivalent_stress(stress_tensor_dict: dict[str, npt.NDArray[np.fl
 
     return sigma_eq_ident
 
-def predict_hill_parameters(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]]) -> list[float]:
+def predict_hill_parameters(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]], plasticity_threshold: float = 0.2) -> list[float]:
     sigma_eq_ident = predict_vm_equivalent_stress(stress_tensor_dict, plasticity_array_dict)
     p_guess = np.array([0.5, 0.5, 0.5, 1.5, 1.5, 1.5])
     def mse_hill_params(p):
         ypred = 0.0
         for load_case in stress_tensor_dict.keys():
-            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], 0.2)
+            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
             func = lambda p: (sim.Hill_stress(stress_tensor_at_plasticity_threshold, p) - sigma_eq_ident) ** 2
             ypred += func(p)
         return ypred / len(stress_tensor_dict.keys())
@@ -566,15 +620,8 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
     plt.savefig(figname)
 
 
-def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_params: list[list[float]],
-                                      list_sigma_guess: list[float], plasticity_threshold_list=list[float],
+def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_params: list[list[float]], plasticity_threshold_list=list[float],
                                       figname="hill_yield_surface_evolution.png") -> None:
-    inc = 1001
-
-    theta_array = np.linspace(0, 2.0 * np.pi, inc, endpoint=True)
-    sigma_11 = np.cos(theta_array)
-    sigma_22 = np.sin(theta_array)
-    sigma = np.zeros(6)
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -588,22 +635,33 @@ def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_p
     plt.xlabel(r"$\sigma_{11}$ (MPa)")
     plt.ylabel(r"$\sigma_{22}$ (MPa)")
     ax.xaxis.set_label_coords(1.05, 0.45)
-    ax.yaxis.set_label_coords(0.43, 1.05)
+    ax.yaxis.set_label_coords(0.55, 1.05)
 
-    for i in range(len(list_sigma_eq_vm)):
-        result = np.zeros(inc)
+    inc = 1001
+    theta_array = np.linspace(0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_22 = np.sin(theta_array)
+    sigma = np.zeros(6)
+    result = np.zeros(inc)
 
-        for j in range(0, inc):
-            sigma[0] = sigma_11[j]
-            sigma[1] = sigma_22[j]
-            func = lambda seq: abs(seq * sim.Hill_stress(sigma, list_hill_params[j]) - list_sigma_eq_vm[j])
-            res = minimize(func, list_sigma_guess[i], method='SLSQP')
-            result[j] = res.x[0]
+    for i in range(len(plasticity_threshold_list)):
 
-        x = result * np.cos(theta_array)
-        y = result * np.sin(theta_array)
+        try:
 
-        plt.plot(x, y, "--", label=r"$\epsilon^{p}$ " + str(plasticity_threshold_list) + "%")
+            for j in range(0, inc):
+                sigma[0] = sigma_11[j]
+                sigma[1] = sigma_22[j]
+                func = lambda seq: abs(seq * sim.Hill_stress(sigma, list_hill_params[i]) - list_sigma_eq_vm[i])
+                res = minimize(func, list_sigma_eq_vm[i], method='SLSQP')
+                result[j] = res.x[0]
+
+            x = result * np.cos(theta_array)
+            y = result * np.sin(theta_array)
+
+            plt.plot(x, y, "--", label=r"$\epsilon^{p}$ " + str(plasticity_threshold_list[i]) + "%")
+
+        except:
+            print("Plasticity threshold ", plasticity_threshold_list[i], " not reached.")
 
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
