@@ -6,7 +6,7 @@ import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize
 import pyvista as pv
-from typing import Optional, Union
+from typing import Optional, Union, List
 from tqdm import tqdm
 
 
@@ -303,7 +303,7 @@ def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict
     hill_data_stress = {}
     hill_data_pstrain = {}
 
-    def swap_indices(array, idx1, idx2):
+    def swap_indices(array: npt.NDArray[np.float_], idx1: int, idx2: int):
         swapped_array = np.copy(array)
         for i in range(len(array)):
             swapped_array[i, idx1], swapped_array[i, idx2] = swapped_array[i, idx2], swapped_array[i, idx1]
@@ -338,11 +338,19 @@ def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict
     swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
     hill_data["tencomp_2233"] = (
     swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["compten_1122"] = (-all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["compten_1133"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    hill_data["compten_2233"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
     hill_data["shear_12"] = (all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
     hill_data["shear_13"] = (
     swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 4), all_results_dict["shear"]["vm_plastic_strain"])
     hill_data["shear_23"] = (
     swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 5), all_results_dict["shear"]["vm_plastic_strain"])
+    hill_data["neg_shear_12"] = (-all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
+    hill_data["neg_shear_13"] = (
+    -swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 4), all_results_dict["shear"]["vm_plastic_strain"])
+    hill_data["neg_shear_23"] = (
+    -swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 5), all_results_dict["shear"]["vm_plastic_strain"])
 
     for key in hill_data.keys():
         hill_data_stress[key] = hill_data[key][0]
@@ -352,27 +360,27 @@ def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict
 
 
 def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
-    stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["stress_component"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["principal_stresses"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["compression"]["stress_component"], all_results_dict["compression"]["vm_plastic_strain"], plasticity_threshold)
+        all_results_dict["compression"]["principal_stresses"], all_results_dict["compression"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_biaxial_tension = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["biaxial_tension"]["stress_component"], all_results_dict["biaxial_tension"]["vm_plastic_strain"], plasticity_threshold)
+        all_results_dict["biaxial_tension"]["principal_stresses"], all_results_dict["biaxial_tension"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_biaxial_compression = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["biaxial_compression"]["stress_component"], all_results_dict["biaxial_compression"]["vm_plastic_strain"], plasticity_threshold)
+        all_results_dict["biaxial_compression"]["principal_stresses"], all_results_dict["biaxial_compression"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_tencomp = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["tencomp"]["stress_component"], all_results_dict["tencomp"]["vm_plastic_strain"], plasticity_threshold)
+        all_results_dict["tencomp"]["principal_stresses"], all_results_dict["tencomp"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_shear = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["shear"]["stress_component"], all_results_dict["shear"]["vm_plastic_strain"], plasticity_threshold)
+        all_results_dict["shear"]["principal_stresses"], all_results_dict["shear"]["vm_plastic_strain"], plasticity_threshold)
 
-    plot_data_s11 = [stress_at_plastic_strain_threshold_tension,
-                     stress_at_plastic_strain_threshold_biaxial_tension, 0.0,
-                     -stress_at_plastic_strain_threshold_tencomp, stress_at_plastic_strain_threshold_compression,
-                     stress_at_plastic_strain_threshold_biaxial_compression, 0.0,
-                     stress_at_plastic_strain_threshold_tencomp, stress_at_plastic_strain_threshold_tension]
-    plot_data_s22 = [0.0, stress_at_plastic_strain_threshold_biaxial_tension,
-                     stress_at_plastic_strain_threshold_tension, stress_at_plastic_strain_threshold_tencomp, 0.0,
-                     stress_at_plastic_strain_threshold_biaxial_compression,
-                     -stress_at_plastic_strain_threshold_tension, -stress_at_plastic_strain_threshold_tencomp,
+    plot_data_s11 = [stress_at_plastic_strain_threshold_tension[0],
+                     stress_at_plastic_strain_threshold_biaxial_tension[0], 0.0,
+                     -stress_at_plastic_strain_threshold_tencomp[0], -stress_at_plastic_strain_threshold_compression[0],
+                     -stress_at_plastic_strain_threshold_biaxial_compression[0], 0.0,
+                     stress_at_plastic_strain_threshold_tencomp[0], stress_at_plastic_strain_threshold_tension[0]]
+    plot_data_s22 = [0.0, stress_at_plastic_strain_threshold_biaxial_tension[1],
+                     stress_at_plastic_strain_threshold_tension[0], stress_at_plastic_strain_threshold_tencomp[1], 0.0,
+                     -stress_at_plastic_strain_threshold_biaxial_compression[1],
+                     -stress_at_plastic_strain_threshold_tension[0], -stress_at_plastic_strain_threshold_tencomp[1],
                      0.0]
 
     return plot_data_s11, plot_data_s22
@@ -429,6 +437,8 @@ def plot_yield_surface_from_all_results(all_results_dict: dict[str, dict[str, np
 
     plot_data_s11, plot_data_s22 = compute_yield_surface_data_from_all_results(all_results_dict,
                                                               plasticity_threshold)
+    print("data_s11: ", plot_data_s11)
+    print("data_s22: ", plot_data_s22)
 
     plt.plot(plot_data_s11, plot_data_s22, "o--")
 
