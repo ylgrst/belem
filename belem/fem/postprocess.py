@@ -4,7 +4,7 @@ import fedoo as fd
 import matplotlib.pyplot as plt
 import math as m
 from simcoon import simmit as sim
-from scipy.optimize import minimize
+from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
 from typing import Optional, Union, List
 from tqdm import tqdm
@@ -369,8 +369,6 @@ def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict
         all_results_dict["biaxial_compression"]["principal_stresses"], all_results_dict["biaxial_compression"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_tencomp = get_stress_tensor_at_plasticity_threshold(
         all_results_dict["tencomp"]["principal_stresses"], all_results_dict["tencomp"]["vm_plastic_strain"], plasticity_threshold)
-    stress_at_plastic_strain_threshold_shear = get_stress_tensor_at_plasticity_threshold(
-        all_results_dict["shear"]["principal_stresses"], all_results_dict["shear"]["vm_plastic_strain"], plasticity_threshold)
 
     plot_data_s11 = [stress_at_plastic_strain_threshold_tension[0],
                      stress_at_plastic_strain_threshold_biaxial_tension[0], 0.0,
@@ -562,13 +560,13 @@ def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plastic
 def predict_vm_equivalent_stress(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]], plasticity_threshold: float = 0.2) -> float:
     ref_vm_stress = sim.Mises_stress(get_stress_tensor_at_plasticity_threshold(stress_tensor_dict["tension_11"], plasticity_array_dict["tension_11"], plasticity_threshold))
     def mse_vm_stress(sigma_eq):
-        ypred = 0.0
+        mse = 0.0
         for load_case in stress_tensor_dict.keys():
             stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
             vm_stress = sim.Mises_stress(stress_tensor_at_plasticity_threshold)
             func = lambda sigma_eq: (vm_stress - sigma_eq) ** 2
-            ypred += func(sigma_eq)
-        return ypred / len(stress_tensor_dict.keys())
+            mse += func(sigma_eq)
+        return mse / len(stress_tensor_dict.keys())
 
     sigma_eq_ident = minimize(mse_vm_stress, ref_vm_stress, method='SLSQP').x
 
@@ -578,14 +576,43 @@ def predict_hill_parameters(stress_tensor_dict: dict[str, npt.NDArray[np.float_]
     sigma_eq_ident = predict_vm_equivalent_stress(stress_tensor_dict, plasticity_array_dict)
     p_guess = np.array([0.5, 0.5, 0.5, 1.5, 1.5, 1.5])
     def mse_hill_params(p):
-        ypred = 0.0
+        mse = 0.0
         for load_case in stress_tensor_dict.keys():
             stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
             func = lambda p: (sim.Hill_stress(stress_tensor_at_plasticity_threshold, p) - sigma_eq_ident) ** 2
-            ypred += func(p)
-        return ypred / len(stress_tensor_dict.keys())
-    sigma_Hill_eq_ident = minimize(mse_hill_params, p_guess, method='SLSQP')
-    return sigma_Hill_eq_ident.x
+            mse += func(p)
+        return mse / len(stress_tensor_dict.keys())
+    hill_params_ident = minimize(mse_hill_params, p_guess, method='SLSQP')
+    return hill_params_ident.x
+
+def predict_ani_parameters(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]], plasticity_threshold: float = 0.2) -> list[float]:
+    sigma_eq_ident = predict_vm_equivalent_stress(stress_tensor_dict, plasticity_array_dict)
+    p_guess = np.array([1.0, 1.0, 1.0, -0.5, -0.5, -0.5, 1.5, 1.5, 1.5])
+    def mse_ani_params(p):
+        mse = 0.0
+        for load_case in stress_tensor_dict.keys():
+            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
+            func = lambda p: (sim.Ani_stress(stress_tensor_at_plasticity_threshold, p) - sigma_eq_ident) ** 2
+            mse += func(p)
+        return mse / len(stress_tensor_dict.keys())
+    ani_params_ident = minimize(mse_ani_params, p_guess, method='SLSQP')
+    return ani_params_ident.x
+#ani_stress init: [1.0, 1.0, 1.0, -0.5, -0.5, -0.5, 1.5, 1.5, 1.5]
+# [p11, p22, p33, p12, p13, p23, p44, p55, p66]
+
+def predict_dfa_parameters(stress_tensor_dict: dict[str, npt.NDArray[np.float_]], plasticity_array_dict: dict[str, npt.NDArray[np.float_]], plasticity_threshold: float = 0.2) -> list[float]:
+    sigma_eq_ident = predict_vm_equivalent_stress(stress_tensor_dict, plasticity_array_dict)
+    p_guess = np.array([0.5, 0.5, 0.5, 1.5, 1.5, 1.5, 0.0])
+    def mse_dfa_params(p):
+        mse = 0.0
+        for load_case in stress_tensor_dict.keys():
+            stress_tensor_at_plasticity_threshold = get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)
+            func = lambda p: (sim.DFA_stress(stress_tensor_at_plasticity_threshold, p) - sigma_eq_ident) ** 2
+            mse += func(p)
+        return mse / len(stress_tensor_dict.keys())
+    dfa_params_ident = minimize(mse_dfa_params, p_guess, method='SLSQP')
+    return dfa_params_ident.x
+
 
 
 def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
@@ -662,6 +689,180 @@ def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_p
                 sigma[0] = sigma_11[j]
                 sigma[1] = sigma_22[j]
                 func = lambda seq: abs(seq * sim.Hill_stress(sigma, list_hill_params[i]) - list_sigma_eq_vm[i])
+                res = minimize(func, list_sigma_eq_vm[i], method='SLSQP')
+                result[j] = res.x[0]
+
+            x = result * np.cos(theta_array)
+            y = result * np.sin(theta_array)
+
+            plt.plot(x, y, "--", label=r"$\epsilon^{p}$ " + str(plasticity_threshold_list[i]) + "%")
+
+        except:
+            print("Plasticity threshold ", plasticity_threshold_list[i], " not reached.")
+
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
+def plot_ani_yield_surface(sigma_eq_vm: float, ani_params: list[float],
+                           yield_surface_data_s11: npt.NDArray[np.float_],
+                           yield_surface_data_s22: npt.NDArray[np.float_],
+                           figname="ani_yield.png") -> None:
+    inc = 1001
+
+    theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_22 = np.sin(theta_array)
+    sigma = np.zeros(6)
+
+    result = np.zeros(inc)
+
+    for i in range(0, inc):
+        sigma[0] = sigma_11[i]
+        sigma[1] = sigma_22[i]
+        func = lambda seq: abs(seq * sim.Ani_stress(sigma, ani_params) - sigma_eq_vm)
+        res = minimize(func, sigma_eq_vm, method='SLSQP')
+        result[i] = res.x[0]
+
+    x = result * np.cos(theta_array)
+    y = result * np.sin(theta_array)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+    plt.plot(x, y, "--", label="Ani yield surface")
+    plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
+def plot_ani_yield_surface_evolution(list_sigma_eq_vm: list[float], list_ani_params: list[list[float]], plasticity_threshold_list=list[float],
+                                     figname="anisotropic_yield_surface_evolution.png") -> None:
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+
+    inc = 1001
+    theta_array = np.linspace(0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_22 = np.sin(theta_array)
+    sigma = np.zeros(6)
+    result = np.zeros(inc)
+
+    for i in range(len(plasticity_threshold_list)):
+
+        try:
+
+            for j in range(0, inc):
+                sigma[0] = sigma_11[j]
+                sigma[1] = sigma_22[j]
+                func = lambda seq: abs(seq * sim.Ani_stress(sigma, list_ani_params[i]) - list_sigma_eq_vm[i])
+                res = minimize(func, list_sigma_eq_vm[i], method='SLSQP')
+                result[j] = res.x[0]
+
+            x = result * np.cos(theta_array)
+            y = result * np.sin(theta_array)
+
+            plt.plot(x, y, "--", label=r"$\epsilon^{p}$ " + str(plasticity_threshold_list[i]) + "%")
+
+        except:
+            print("Plasticity threshold ", plasticity_threshold_list[i], " not reached.")
+
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
+def plot_dfa_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
+                           yield_surface_data_s11: npt.NDArray[np.float_],
+                           yield_surface_data_s22: npt.NDArray[np.float_],
+                           figname="dfa_yield.png") -> None:
+    inc = 1001
+
+    theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_22 = np.sin(theta_array)
+    sigma = np.zeros(6)
+
+    result = np.zeros(inc)
+
+    for i in range(0, inc):
+        sigma[0] = sigma_11[i]
+        sigma[1] = sigma_22[i]
+        func = lambda seq: abs(seq * sim.DFA_stress(sigma, dfa_params) - sigma_eq_vm)
+        res = minimize(func, sigma_eq_vm, method='SLSQP')
+        result[i] = res.x[0]
+
+    x = result * np.cos(theta_array)
+    y = result * np.sin(theta_array)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+    plt.plot(x, y, "--", label="DFA yield surface")
+    plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
+def plot_dfa_yield_surface_evolution(list_sigma_eq_vm: list[float], list_dfa_params: list[list[float]], plasticity_threshold_list=list[float],
+                                     figname="dfa_yield_surface_evolution.png") -> None:
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{22}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+
+    inc = 1001
+    theta_array = np.linspace(0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_22 = np.sin(theta_array)
+    sigma = np.zeros(6)
+    result = np.zeros(inc)
+
+    for i in range(len(plasticity_threshold_list)):
+
+        try:
+
+            for j in range(0, inc):
+                sigma[0] = sigma_11[j]
+                sigma[1] = sigma_22[j]
+                func = lambda seq: abs(seq * sim.DFA_stress(sigma, list_dfa_params[i]) - list_sigma_eq_vm[i])
                 res = minimize(func, list_sigma_eq_vm[i], method='SLSQP')
                 result[j] = res.x[0]
 
