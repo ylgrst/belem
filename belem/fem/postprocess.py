@@ -383,6 +383,21 @@ def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict
 
     return plot_data_s11, plot_data_s22
 
+def compute_yield_shear_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
+    stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["tension"]["stress_component"], all_results_dict["tension"]["vm_plastic_strain"],
+        plasticity_threshold)
+    stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["compression"]["stress_component"], all_results_dict["compression"]["vm_plastic_strain"],
+        plasticity_threshold)
+    stress_at_plastic_strain_threshold_shear = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["shear"]["stress_component"], all_results_dict["shear"]["vm_plastic_strain"],
+        plasticity_threshold)
+
+    plot_data_s11 = [stress_at_plastic_strain_threshold_tension, 0.0, stress_at_plastic_strain_threshold_compression, 0.0]
+    plot_data_s12 = [0.0, stress_at_plastic_strain_threshold_shear, 0.0, - stress_at_plastic_strain_threshold_shear]
+
+    return plot_data_s11, plot_data_s12
 
 def compute_yield_surface_data(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                                biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -435,13 +450,32 @@ def plot_yield_surface_from_all_results(all_results_dict: dict[str, dict[str, np
 
     plot_data_s11, plot_data_s22 = compute_yield_surface_data_from_all_results(all_results_dict,
                                                               plasticity_threshold)
-    print("data_s11: ", plot_data_s11)
-    print("data_s22: ", plot_data_s22)
 
     plt.plot(plot_data_s11, plot_data_s22, "o--")
 
     plt.savefig(figname)
 
+def plot_yield_shear_surface_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float, figname: str = "stress_at_Ep_shear.png") -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{12}$ (MPa)")
+    plt.ylabel(r"$\sigma_{11}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+
+    plot_data_s11, plot_data_s12 = compute_yield_shear_surface_data_from_all_results(all_results_dict,
+                                                              plasticity_threshold)
+
+    plt.plot(plot_data_s11, plot_data_s12, "o--")
+
+    plt.savefig(figname)
 
 def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -744,6 +778,47 @@ def plot_ani_yield_surface(sigma_eq_vm: float, ani_params: list[float],
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
 
+def plot_ani_shear_yield_surface(sigma_eq_vm: float, ani_params: list[float],
+                           yield_surface_data_s11: npt.NDArray[np.float_],
+                           yield_surface_data_s12: npt.NDArray[np.float_],
+                           figname="dfa_yield_shear.png") -> None:
+    inc = 1001
+
+    theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_12 = np.sin(theta_array)
+    sigma = np.zeros(6)
+
+    result = np.zeros(inc)
+
+    for i in range(0, inc):
+        sigma[0] = sigma_11[i]
+        sigma[3] = sigma_12[i]
+        func = lambda seq: abs(seq * sim.Ani_stress(sigma, ani_params) - sigma_eq_vm)
+        res = minimize(func, sigma_eq_vm, method='SLSQP')
+        result[i] = res.x[0]
+
+    x = result * np.cos(theta_array)
+    y = result * np.sin(theta_array)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{12}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+    plt.plot(x, y, "--", label="Anisotropic shear yield surface")
+    plt.plot(yield_surface_data_s11, yield_surface_data_s12, "o", label="Simulation data")
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
 def plot_ani_yield_surface_evolution(list_sigma_eq_vm: list[float], list_ani_params: list[list[float]], plasticity_threshold_list=list[float],
                                      figname="anisotropic_yield_surface_evolution.png") -> None:
 
@@ -828,6 +903,47 @@ def plot_dfa_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
     ax.yaxis.set_label_coords(0.55, 1.05)
     plt.plot(x, y, "--", label="DFA yield surface")
     plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
+    plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
+    plt.savefig(figname)
+
+def plot_dfa_shear_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
+                           yield_surface_data_s11: npt.NDArray[np.float_],
+                           yield_surface_data_s12: npt.NDArray[np.float_],
+                           figname="dfa_yield_shear.png") -> None:
+    inc = 1001
+
+    theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
+    sigma_11 = np.cos(theta_array)
+    sigma_12 = np.sin(theta_array)
+    sigma = np.zeros(6)
+
+    result = np.zeros(inc)
+
+    for i in range(0, inc):
+        sigma[0] = sigma_11[i]
+        sigma[3] = sigma_12[i]
+        func = lambda seq: abs(seq * sim.DFA_stress(sigma, dfa_params) - sigma_eq_vm)
+        res = minimize(func, sigma_eq_vm, method='SLSQP')
+        result[i] = res.x[0]
+
+    x = result * np.cos(theta_array)
+    y = result * np.sin(theta_array)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
+    ax.spines['left'].set_position('zero')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    plt.xlabel(r"$\sigma_{11}$ (MPa)")
+    plt.ylabel(r"$\sigma_{12}$ (MPa)")
+    ax.xaxis.set_label_coords(1.05, 0.45)
+    ax.yaxis.set_label_coords(0.55, 1.05)
+    plt.plot(x, y, "--", label="DFA shear yield surface")
+    plt.plot(yield_surface_data_s11, yield_surface_data_s12, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
 
