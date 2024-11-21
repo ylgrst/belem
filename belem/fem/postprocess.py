@@ -297,11 +297,11 @@ def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.N
     plt.savefig(figname)
     plt.close()
 
-def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]]) -> list[dict[str, tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]]]:
+def build_yield_data_projected_to_all_directions(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]]) -> list[dict[str, tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]]]:
     """USE ONLY ON STRUCTURES WITH AT LEAST CUBIC SYMMETRY"""
-    hill_data = {}
-    hill_data_stress = {}
-    hill_data_pstrain = {}
+    yield_data = {}
+    yield_data_stress = {}
+    yield_data_pstrain = {}
 
     def swap_indices(array: npt.NDArray[np.float_], idx1: int, idx2: int):
         swapped_array = np.copy(array)
@@ -310,53 +310,53 @@ def build_hill_data_projected_to_all_directions(all_results_dict: dict[str, dict
 
         return swapped_array
 
-    hill_data["tension_11"] = (all_results_dict["tension"]["stress_tensor"], all_results_dict["tension"]["vm_plastic_strain"])
-    hill_data["tension_22"] = (
+    yield_data["tension_11"] = (all_results_dict["tension"]["stress_tensor"], all_results_dict["tension"]["vm_plastic_strain"])
+    yield_data["tension_22"] = (
     swap_indices(all_results_dict["tension"]["stress_tensor"], 0, 1), all_results_dict["tension"]["vm_plastic_strain"])
-    hill_data["tension_33"] = (
+    yield_data["tension_33"] = (
     swap_indices(all_results_dict["tension"]["stress_tensor"], 0, 2), all_results_dict["tension"]["vm_plastic_strain"])
-    hill_data["compression_11"] = (
+    yield_data["compression_11"] = (
     all_results_dict["compression"]["stress_tensor"], all_results_dict["compression"]["vm_plastic_strain"])
-    hill_data["compression_22"] = (
+    yield_data["compression_22"] = (
     swap_indices(all_results_dict["compression"]["stress_tensor"], 0, 1), all_results_dict["compression"]["vm_plastic_strain"])
-    hill_data["compression_33"] = (
+    yield_data["compression_33"] = (
     swap_indices(all_results_dict["compression"]["stress_tensor"], 0, 2), all_results_dict["compression"]["vm_plastic_strain"])
-    hill_data["bitraction_1122"] = (
+    yield_data["bitraction_1122"] = (
     all_results_dict["biaxial_tension"]["stress_tensor"], all_results_dict["biaxial_tension"]["vm_plastic_strain"])
-    hill_data["bitraction_1133"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 1, 2),
+    yield_data["bitraction_1133"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 1, 2),
                                     all_results_dict["biaxial_tension"]["vm_plastic_strain"])
-    hill_data["bitraction_2233"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 0, 2),
+    yield_data["bitraction_2233"] = (swap_indices(all_results_dict["biaxial_tension"]["stress_tensor"], 0, 2),
                                     all_results_dict["biaxial_tension"]["vm_plastic_strain"])
-    hill_data["bicompression_1122"] = (
+    yield_data["bicompression_1122"] = (
     all_results_dict["biaxial_compression"]["stress_tensor"], all_results_dict["biaxial_compression"]["vm_plastic_strain"])
-    hill_data["bicompression_1133"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 1, 2),
+    yield_data["bicompression_1133"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 1, 2),
                                        all_results_dict["biaxial_compression"]["vm_plastic_strain"])
-    hill_data["bicompression_2233"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 0, 2),
+    yield_data["bicompression_2233"] = (swap_indices(all_results_dict["biaxial_compression"]["stress_tensor"], 0, 2),
                                        all_results_dict["biaxial_compression"]["vm_plastic_strain"])
-    hill_data["tencomp_1122"] = (all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["tencomp_1133"] = (
+    yield_data["tencomp_1122"] = (all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
+    yield_data["tencomp_1133"] = (
     swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["tencomp_2233"] = (
+    yield_data["tencomp_2233"] = (
     swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["compten_1122"] = (-all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["compten_1133"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["compten_2233"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
-    hill_data["shear_12"] = (all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
-    hill_data["shear_13"] = (
+    yield_data["compten_1122"] = (-all_results_dict["tencomp"]["stress_tensor"], all_results_dict["tencomp"]["vm_plastic_strain"])
+    yield_data["compten_1133"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 1, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    yield_data["compten_2233"] = (-swap_indices(all_results_dict["tencomp"]["stress_tensor"], 0, 2), all_results_dict["tencomp"]["vm_plastic_strain"])
+    yield_data["shear_12"] = (all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
+    yield_data["shear_13"] = (
     swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 4), all_results_dict["shear"]["vm_plastic_strain"])
-    hill_data["shear_23"] = (
+    yield_data["shear_23"] = (
     swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 5), all_results_dict["shear"]["vm_plastic_strain"])
-    hill_data["neg_shear_12"] = (-all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
-    hill_data["neg_shear_13"] = (
+    yield_data["neg_shear_12"] = (-all_results_dict["shear"]["stress_tensor"], all_results_dict["shear"]["vm_plastic_strain"])
+    yield_data["neg_shear_13"] = (
     -swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 4), all_results_dict["shear"]["vm_plastic_strain"])
-    hill_data["neg_shear_23"] = (
+    yield_data["neg_shear_23"] = (
     -swap_indices(all_results_dict["shear"]["stress_tensor"], 3, 5), all_results_dict["shear"]["vm_plastic_strain"])
 
-    for key in hill_data.keys():
-        hill_data_stress[key] = hill_data[key][0]
-        hill_data_pstrain[key] = hill_data[key][1]
+    for key in yield_data.keys():
+        yield_data_stress[key] = yield_data[key][0]
+        yield_data_pstrain[key] = yield_data[key][1]
 
-    return hill_data, hill_data_stress, hill_data_pstrain
+    return yield_data, yield_data_stress, yield_data_pstrain
 
 
 def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
