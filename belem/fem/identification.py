@@ -34,8 +34,8 @@ def compute_elastic_material_parameters(bulk_material_young_modulus: float,
     shape_young_modulus = get_shape_young_modulus(shape_young_filename)
     shape_shear_modulus = get_shape_shear_modulus(shape_shear_filename)
 
-    structure_young = bulk_material_young_modulus*shape_young_modulus/1000.0
-    structure_shear = bulk_material_young_modulus*shape_shear_modulus/1000.0
+    structure_young = bulk_material_young_modulus*shape_young_modulus
+    structure_shear = bulk_material_young_modulus*shape_shear_modulus
 
     return np.array([structure_young, structure_shear])
 
@@ -51,7 +51,7 @@ def write_parameter_input_file(list_parameters: List[parameter.Parameter], path:
 def write_dfa_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_params: npt.NDArray[np.float_],
                                   list_parameters: List[parameter.Parameter], path: str = "keys/") -> None:
     with open(path + "material.dat", "w+") as file:
-        file.write("Material\nName\tEPDFA\nNumber_of_material_parameters\t17\nNumber_of_internal_variables\t33\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n#Mechanical\n")
+        file.write("Material\nName\tEPDFA\nNumber_of_material_parameters\t17\nNumber_of_internal_variables\t33\n\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n\n#Mechanical\n")
         file.write("E\t" + str(elastic_params[0]) + "\n")
         file.write("nu\t0.3\n")
         file.write("G\t" + str(elastic_params[1]) + "\n")
