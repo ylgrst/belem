@@ -112,162 +112,162 @@ def generate_constants_file(filename: str = "constants.inp", path: str = "data/"
 
 def generate_weight_file(filename: str = "files_weights.inp", path: str = "data/") -> None:
     template = """Weight_1_per_file
-                type_0_no_weight_1_weight_per_file
-                0
-                #if_1_list
-                
-                Weight_2_per_columns
-                type_0_no_weight_1_sum_per_columns_2_weight_per_columns_plus_sum_3_weight_per_columns_no_sum
-                1
-                #if_2_or_3_list
-                
-                Weight_3_or_uncertainty_per_point
-                type_0_no_weight_1_weight_column_for_each_exp_col
-                0
-                #if_1_list_per_file_of_columns
-                
-                
-                
-                
-                
-                
-                #Below is a reminder only
-                
-                Weight_1_per_file
-                type_0_no_weight_1_weight_per_file
-                1
-                #if_1_list
-                2.0
-                
-                Weight_2_per_columns
-                type_0_no_weight_1_sum_per_columns_2_weight_per_columns_plus_sum_3_weight_per_columns_no_sum
-                2
-                #if_2_or_3_list
-                4.0	1.0
-                
-                Weight_3_or_uncertainty_per_point
-                type_0_no_weight_1_weight_column_for_each_exp_col
-                1
-                #if_1_list_per_file_of_columns
-                9	10
-                
-                
-                """
+type_0_no_weight_1_weight_per_file
+0
+#if_1_list
+
+Weight_2_per_columns
+type_0_no_weight_1_sum_per_columns_2_weight_per_columns_plus_sum_3_weight_per_columns_no_sum
+1
+#if_2_or_3_list
+
+Weight_3_or_uncertainty_per_point
+type_0_no_weight_1_weight_column_for_each_exp_col
+0
+#if_1_list_per_file_of_columns
+
+
+
+
+
+
+#Below is a reminder only
+
+Weight_1_per_file
+type_0_no_weight_1_weight_per_file
+1
+#if_1_list
+2.0
+
+Weight_2_per_columns
+type_0_no_weight_1_sum_per_columns_2_weight_per_columns_plus_sum_3_weight_per_columns_no_sum
+2
+#if_2_or_3_list
+4.0	1.0
+
+Weight_3_or_uncertainty_per_point
+type_0_no_weight_1_weight_column_for_each_exp_col
+1
+#if_1_list_per_file_of_columns
+9	10
+
+
+"""
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_generation_file(filename: str = "gen0.inp", path: str = "data/") -> None:
     template = """g	nindividual	cost	p(0)	p(1)	p(2)	p(3)	p(4)	
-                0	1	0.538474	32000	5144.24	0.0900987	0.211601	3190.88
-                0	2	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
-                0	3	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
-                0	4	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
-                """
+0	1	0.538474	32000	5144.24	0.0900987	0.211601	3190.88
+0	2	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
+0	3	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
+0	4	0.538474	30196.8	5144.24	0.0900987	0.211601	3190.88
+"""
 
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_ident_control_file(filename: str = "ident_control.inp", path: str = "data/") -> None:
     template = """Number_of_generations
-                100
-                Aleatory_Space_Population_0=mesh_1=meshlimit_2=random_3=defined
-                2
-                Space_Population
-                10
-                Golden_boys
-                1
-                Max_population_per_subgeneration
-                5
-                Mutation_probability_pourcentage
-                5
-                Perturbation
-                0.001
-                Lagrange_parameters
-                0.001	10
-                Lambda_LM
-                0.01
-                phiEps
-                1.
-                """
+100
+Aleatory_Space_Population_0=mesh_1=meshlimit_2=random_3=defined
+2
+Space_Population
+10
+Golden_boys
+1
+Max_population_per_subgeneration
+5
+Mutation_probability_pourcentage
+5
+Perturbation
+0.001
+Lagrange_parameters
+0.001	10
+Lambda_LM
+0.01
+phiEps
+1.
+"""
 
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_ident_essentials_file(filename: str = "ident_essentials.inp", path: str = "data/") -> None:
     template = """Number_of_parameters
-                5
-                Number_of_consts
-                2
-                Number_of_files
-                3
-                """
+5
+Number_of_consts
+2
+Number_of_files
+3
+"""
 
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_solver_control_file(filename: str = "solver_control.inp", path: str = "data/") -> None:
     template = """div_tnew_dt_solver
-                0.5
-                
-                mul_tnew_dt_solver
-                2
-                
-                miniter_solver
-                10
-                
-                maxiter_solver
-                100
-                
-                inforce_solver
-                1
-                
-                precision_solver
-                1.E-6
-                
-                lambda_solver
-                10000.
-                """
+0.5
+
+mul_tnew_dt_solver
+2
+
+miniter_solver
+10
+
+maxiter_solver
+100
+
+inforce_solver
+1
+
+precision_solver
+1.E-6
+
+lambda_solver
+10000.
+"""
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_solver_essentials_file(filename: str = "solver_essentials.inp", path: str = "data/") -> None:
     template = """Solver_type_0_Newton_tangent_1_RNL
-                0"""
+0"""
 
     with open(path + filename, "w+") as file:
         file.write(template)
 
 def generate_default_material_file(filename: str = "material.dat", path: str = "data/") -> None:
     template = """Material
-                Name	EPDFA
-                Number_of_material_parameters	17
-                Number_of_internal_variables	33
-                
-                #Orientation
-                psi	0
-                theta	0
-                phi	0
-                
-                #Mechanical
-                E	2405.040177
-                nu	0.3
-                G	2405.040177
-                alpha_iso	1.E-6
-                sigmaY	66.775157
-                Q	2441.737289
-                b	481.737801
-                C_1	145959.140084
-                D_1	782.541931
-                C_2	46511.503691
-                D_2	210.544501
-                F_dfa	0.36
-                G_dfa	0.36
-                H_dfa	0.36
-                L_dfa	1.56
-                M_dfa	1.56
-                N_dfa	1.56
-                K_dfa	0.2
-                """
+Name	EPDFA
+Number_of_material_parameters	17
+Number_of_internal_variables	33
+
+#Orientation
+psi	0
+theta	0
+phi	0
+
+#Mechanical
+E	2405.040177
+nu	0.3
+G	2405.040177
+alpha_iso	1.E-6
+sigmaY	66.775157
+Q	2441.737289
+b	481.737801
+C_1	145959.140084
+D_1	782.541931
+C_2	46511.503691
+D_2	210.544501
+F_dfa	0.36
+G_dfa	0.36
+H_dfa	0.36
+L_dfa	1.56
+M_dfa	1.56
+N_dfa	1.56
+K_dfa	0.2
+"""
     with open(path + filename, "w+") as file:
         file.write(template)
 
