@@ -234,14 +234,20 @@ def get_stress_at_plasticity_threshold(stress_array: npt.NDArray[np.float_],
                                        plasticity_array: npt.NDArray[np.float_], plasticity_threshold: float) -> \
         npt.NDArray[np.float_]:
     """Fetches point in stress-strain curve where set plasticity threshold is reached"""
-    index = next(idx for idx, plasticity in enumerate(plasticity_array) if plasticity > plasticity_threshold)
+    try:
+        index = next(idx for idx, plasticity in enumerate(plasticity_array) if plasticity > plasticity_threshold)
+    except StopIteration:
+        index = len(plasticity_array) - 1
     stress = stress_array[:, index]
 
     return stress
 
 def get_stress_tensor_at_plasticity_threshold(stress_array: npt.NDArray[np.float_], plasticity_array: npt.NDArray[np.float_], plasticity_threshold: float) -> npt.NDArray[np.float_]:
     """Fetches stress array where set plasticity threshold is reached"""
-    index = next(idx for idx, plasticity in enumerate(plasticity_array) if plasticity > plasticity_threshold)
+    try:
+        index = next(idx for idx, plasticity in enumerate(plasticity_array) if plasticity > plasticity_threshold)
+    except StopIteration:
+        index = len(plasticity_array) - 1
     stress = stress_array[index]
 
     return stress
@@ -249,7 +255,10 @@ def get_stress_tensor_at_plasticity_threshold(stress_array: npt.NDArray[np.float
 def get_vm_stress_at_plasticity_threshold(vm_stress_array: npt.NDArray[np.float_],
                                           vm_plasticity_array: npt.NDArray[np.float_],
                                           plasticity_threshold: float) -> float:
-    index = next(idx for idx, plasticity in enumerate(vm_plasticity_array) if plasticity > plasticity_threshold)
+    try:
+        index = next(idx for idx, plasticity in enumerate(vm_plasticity_array) if plasticity > plasticity_threshold)
+    except StopIteration:
+        index = len(vm_plasticity_array) - 1
     vm_stress = vm_stress_array[index]
 
     return vm_stress
@@ -454,6 +463,7 @@ def plot_yield_surface_from_all_results(all_results_dict: dict[str, dict[str, np
     plt.plot(plot_data_s11, plot_data_s22, "o--")
 
     plt.savefig(figname)
+    plt.close()
 
 def plot_yield_shear_surface_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float, figname: str = "stress_at_Ep_shear.png") -> None:
     fig = plt.figure()
@@ -476,6 +486,7 @@ def plot_yield_shear_surface_from_all_results(all_results_dict: dict[str, dict[s
     plt.plot(plot_data_s11, plot_data_s12, "o--")
 
     plt.savefig(figname)
+    plt.close()
 
 def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
                        biaxial_tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -504,6 +515,7 @@ def plot_yield_surface(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[n
     plt.plot(plot_data_s11, plot_data_s22, "o--")
 
     plt.savefig(figname)
+    plt.close()
 
 
 def plot_yield_surface_evolution_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold_list: list[float],
@@ -531,6 +543,7 @@ def plot_yield_surface_evolution_from_all_results(all_results_dict: dict[str, di
 
     plt.legend()
     plt.savefig(figname)
+    plt.close()
 
 
 def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]],
@@ -565,6 +578,7 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
 
     plt.legend()
     plt.savefig(figname)
+    plt.close()
 
 
 def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plasticity_threshold: float,
@@ -689,6 +703,7 @@ def plot_hill_yield_surface(sigma_eq_vm: float, hill_params: list[float],
     plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 
 def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_params: list[list[float]], plasticity_threshold_list=list[float],
@@ -736,6 +751,7 @@ def plot_hill_yield_surface_evolution(list_sigma_eq_vm: list[float], list_hill_p
 
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_ani_yield_surface(sigma_eq_vm: float, ani_params: list[float],
                            yield_surface_data_s11: npt.NDArray[np.float_],
@@ -777,11 +793,12 @@ def plot_ani_yield_surface(sigma_eq_vm: float, ani_params: list[float],
     plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_ani_shear_yield_surface(sigma_eq_vm: float, ani_params: list[float],
                            yield_surface_data_s11: npt.NDArray[np.float_],
                            yield_surface_data_s12: npt.NDArray[np.float_],
-                           figname="dfa_yield_shear.png") -> None:
+                           figname="ani_yield_shear.png") -> None:
     inc = 1001
 
     theta_array = np.linspace(0.0, 2.0 * np.pi, inc, endpoint=True)
@@ -818,6 +835,7 @@ def plot_ani_shear_yield_surface(sigma_eq_vm: float, ani_params: list[float],
     plt.plot(yield_surface_data_s11, yield_surface_data_s12, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_ani_yield_surface_evolution(list_sigma_eq_vm: list[float], list_ani_params: list[list[float]], plasticity_threshold_list=list[float],
                                      figname="anisotropic_yield_surface_evolution.png") -> None:
@@ -864,6 +882,7 @@ def plot_ani_yield_surface_evolution(list_sigma_eq_vm: list[float], list_ani_par
 
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_dfa_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
                            yield_surface_data_s11: npt.NDArray[np.float_],
@@ -905,6 +924,7 @@ def plot_dfa_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
     plt.plot(yield_surface_data_s11, yield_surface_data_s22, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_dfa_shear_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
                            yield_surface_data_s11: npt.NDArray[np.float_],
@@ -946,6 +966,7 @@ def plot_dfa_shear_yield_surface(sigma_eq_vm: float, dfa_params: list[float],
     plt.plot(yield_surface_data_s11, yield_surface_data_s12, "o", label="Simulation data")
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
 
 def plot_dfa_yield_surface_evolution(list_sigma_eq_vm: list[float], list_dfa_params: list[list[float]], plasticity_threshold_list=list[float],
                                      figname="dfa_yield_surface_evolution.png") -> None:
@@ -992,3 +1013,4 @@ def plot_dfa_yield_surface_evolution(list_sigma_eq_vm: list[float], list_dfa_par
 
     plt.legend(loc="upper left", bbox_to_anchor=(-0.15, 1.15))
     plt.savefig(figname)
+    plt.close()
