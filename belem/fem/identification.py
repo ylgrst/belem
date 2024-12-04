@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import math as m
 from simcoon import simmit as sim
 from simcoon import parameter, data
+from typing import List
 import os
 
 
@@ -15,7 +16,7 @@ def get_dfa_parameters(filename: str) -> npt.NDArray[np.float_]:
 def compute_young_shear_moduli_from_stiffness_tensor(stiffness_tensor: npt.NDArray[np.float_], young_filename: str, shear_filename: str) -> None:
     young, _, shear = sim.L_cubic_props(stiffness_tensor)
     np.savetxt(young_filename, young)
-    np.savetxt(shear_filename)
+    np.savetxt(shear_filename, shear)
 
 def get_shape_young_modulus(filename: str) -> float:
     young_modulus = np.loadtxt(filename)
