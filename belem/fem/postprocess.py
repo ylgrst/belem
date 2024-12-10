@@ -295,6 +295,31 @@ def plot_stress_strain(stress_array: npt.NDArray[np.float_], strain_array: npt.N
     plt.savefig(figname)
     plt.close()
 
+def plot_all_stress_strain_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
+                                            figname: str = "all_stress_strain.png") -> None:
+
+    sim_to_plot_label = {"tension": "tension (S11 vs E11)", "biaxial_tension": "biaxial tension (S11 vs E11)",
+                          "compression": "compression (S11 vs E11)",
+                          "biaxial_compression": "biaxial compression (S11 vs E11)",
+                          "tencomp": "tension-compression (S11 vs E11)",
+                          "shear": "shear (S12 vs E12)"}
+
+    plt.figure()
+    plt.title("Stress vs strain")
+    plt.xlabel("Strain (%)")
+    plt.ylabel("Stress (MPa)")
+    plt.grid(True)
+    for key in sim_to_plot_label.keys():
+        if key in ["compression", "biaxial_compression"]:
+            strain = -all_results_dict[key]["strain"]
+        else:
+            strain = all_results_dict[key]["strain"]
+        stress = all_results_dict[key]["stress_component"]
+        plt.plot(strain, stress, ls="-", label=sim_to_plot_label[key])
+    plt.legend()
+    plt.savefig(figname)
+    plt.close()
+
 
 def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.NDArray[np.float_],
                    figname: str = "hardening.png"):
@@ -303,6 +328,28 @@ def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.N
     plt.title("Stress vs plastic strain")
     plt.xlabel("Plastic strain (%)")
     plt.ylabel("Stress (MPa)")
+    plt.savefig(figname)
+    plt.close()
+
+def plot_all_hardening_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
+                                            figname: str = "all_hardening.png") -> None:
+
+    sim_to_plot_label = {"tension": "tension (S11 vs E11)", "biaxial_tension": "biaxial tension (S11 vs E11)",
+                          "compression": "compression (S11 vs E11)",
+                          "biaxial_compression": "biaxial compression (S11 vs E11)",
+                          "tencomp": "tension-compression (S11 vs E11)",
+                          "shear": "shear (S12 vs E12)"}
+
+    plt.figure()
+    plt.title("Stress vs strain")
+    plt.xlabel("Strain (%)")
+    plt.ylabel("Stress (MPa)")
+    plt.grid(True)
+    for key in sim_to_plot_label.keys():
+        strain = all_results_dict[key]["vm_plastic_strain"]
+        stress = all_results_dict[key]["stress_component"]
+        plt.plot(strain, stress, ls="-", label=sim_to_plot_label[key])
+    plt.legend()
     plt.savefig(figname)
     plt.close()
 
