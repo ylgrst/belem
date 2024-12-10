@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import math as m
 from simcoon import simmit as sim
 from simcoon import parameter, data
-from typing import List
+from typing import List, Tuple
 import os
-
+import shutil
+import glob
+from sklearn.metrics import mean_squared_error, r2_score
 
 def get_dfa_parameters(filename: str) -> npt.NDArray[np.float_]:
     dfa_params = np.loadtxt(filename)
@@ -280,3 +282,122 @@ def generate_all_default_files(path: str = "data/") -> None:
     generate_solver_control_file(path=path)
     generate_solver_essentials_file(path=path)
     generate_default_material_file(path=path)
+
+
+def compute_loss(parameters_to_optimize: List, elastic_params: npt.NDArray[np.float_],
+                 dfa_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                 results_dir: str = "results_id/") -> float:
+
+    list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
+    list_output_file = []
+
+    umat_name = 'EPDFA'  # This is the 5 character code for the elastic-plastic subroutine
+    nstatev = 33  # The number of scalar variables required, only the initial temperature is stored here
+
+    nu = 0.3
+    alpha = 1.E-6
+    young_modulus, shear_modulus = elastic_params
+    psi_rve = 0.
+    theta_rve = 0.
+    phi_rve = 0.
+
+    props_elast = np.array([young_modulus, nu, shear_modulus, alpha])
+    props_temp = np.append(props_elast, np.array([parameters_to_optimize[i] for i in range(len(parameters_to_optimize))]))
+    props = np.append(props_temp, dfa_params)
+
+    for i in range(len(list_path_file)):
+        output_file = f"results_EPDFA{i:02}.txt"
+        copied_output_file = f"results_EPDFA{i:02}_global-0.txt"
+        list_output_file.append(copied_output_file)
+        sim.solver(umat_name, props, nstatev, psi_rve, theta_rve, phi_rve, 0, 2, path_dir, results_dir, list_path_file[i],
+                   output_file)
+        shutil.copy(results_dir + copied_output_file, num_dir)
+
+    c = sim.calc_cost(len(list_output_file), list_output_file)
+    print(c)
+
+    return c
+
+def add_zero_to_equalize_array_length(array_x, array_y):
+    x = np.copy(array_x)
+    y = np.copy(array_y)
+    if len(x) > len(y):
+        np.insert(y, 0, [0.0])
+    elif len(x) < len(y):
+        np.insert(x, 0, [0.0])
+    else:
+        return x, y
+    return x, y
+
+def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
+               exp_data_columns_to_plot: List[Tuple[int]],
+               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
+               graph_filename: str = "Figure_results_dfa_chaboche.png") -> None:
+
+    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
+        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
+
+    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+
+    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
+        raise Exception("Number of files found does not correspond to sim_list length")
+
+    linestyle_list = ["-", "--", ":", "-."]
+
+    fig = plt.figure()
+    ax = plt.subplot(1, 1, 1)
+    plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel(r'Strain', size=15)
+    plt.ylabel(r'Stress (MPa)', size=15)
+
+    for i in range(len(sim_list)):
+        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
+        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
+        plt.plot(exp_strain, exp_stress, c="black", ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + " simulation")
+        plt.plot(ident_strain, ident_stress, c="red", ls=linestyle_list[i%len(linestyle_list)],
+                 label=sim_list[i] + " identification")
+
+    plt.legend()
+    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
+    plt.close()
+
+def plot_error(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
+               exp_data_columns_to_plot: List[Tuple[int]],
+               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
+               graph_filename: str = "Figure_error_dfa_chaboche.png") -> None:
+
+    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
+        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
+
+    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+
+    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
+        raise Exception("Number of files found does not correspond to sim_list length")
+
+    linestyle_list = ["-", "--", ":", "-."]
+
+    fig = plt.figure()
+    ax = plt.subplot(1, 1, 1)
+    plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel(r'Time', size=15)
+    plt.ylabel(r'MSE', size=15)
+
+    for i in range(len(sim_list)):
+        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
+        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
+
+        exp_strain, ident_stress = add_zero_to_equalize_array_length(exp_strain, ident_stress)
+        mse = np.zeros(len(ident_stress))
+        iterations = np.array([i for i in range(len(mse))])
+        for j in range(len(mse)):
+            mse[j] = mean_squared_error([exp_stress[j]], [ident_stress[j]])
+        mse_r2_score = round(r2_score(exp_stress, ident_stress), 2)
+        plt.plot(iterations, mse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' MSE (r2 score: ' + str(mse_r2_score) + ')')
+
+    plt.legend()
+    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
+    plt.close()
