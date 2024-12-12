@@ -320,6 +320,34 @@ def plot_all_stress_strain_from_all_results(all_results_dict: dict[str, dict[str
     plt.savefig(figname)
     plt.close()
 
+def plot_all_vm_stress_vm_strain_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
+                                                  figname: str = "all_vm_stress_vm_strain.png") -> None:
+
+    sim_to_plot_label = {"tension": "tension", "biaxial_tension": "biaxial tension",
+                          "compression": "compression",
+                          "biaxial_compression": "biaxial compression",
+                          "tencomp": "tension-compression",
+                          "shear": "shear"}
+
+    sim_to_linestyle = {"tension": "-", "biaxial_tension": "-",
+                          "compression": "--",
+                          "biaxial_compression": "--",
+                          "tencomp": "-",
+                          "shear": "-"}
+
+    plt.figure()
+    plt.title("Mises stress vs Mises strain")
+    plt.xlabel("Mises strain (%)")
+    plt.ylabel("Mises stress (MPa)")
+    plt.grid(True)
+    for key in sim_to_plot_label.keys():
+        strain = all_results_dict[key]["vm_strain"]
+        stress = all_results_dict[key]["vm_stress"]
+        plt.plot(strain, stress, ls=sim_to_linestyle[key], label=sim_to_plot_label[key])
+    plt.legend()
+    plt.savefig(figname)
+    plt.close()
+
 
 def plot_hardening(stress_array: npt.NDArray[np.float_], plasticity_array: npt.NDArray[np.float_],
                    figname: str = "hardening.png"):
@@ -349,6 +377,33 @@ def plot_all_hardening_from_all_results(all_results_dict: dict[str, dict[str, np
         strain = all_results_dict[key]["vm_plastic_strain"]
         stress = all_results_dict[key]["stress_component"]
         plt.plot(strain, stress, ls="-", label=sim_to_plot_label[key])
+    plt.legend()
+    plt.savefig(figname)
+    plt.close()
+
+def plot_all_vm_hardening_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
+                                           figname: str = "all_vm_hardening.png") -> None:
+
+    sim_to_plot_label = {"tension": "tension", "biaxial_tension": "biaxial tension",
+                          "compression": "compression",
+                          "biaxial_compression": "biaxial compression",
+                          "tencomp": "tension-compression",
+                          "shear": "shear"}
+    sim_to_linestyle = {"tension": "-", "biaxial_tension": "-",
+                          "compression": "--",
+                          "biaxial_compression": "--",
+                          "tencomp": "-",
+                          "shear": "-"}
+
+    plt.figure()
+    plt.title("Mises stress vs Mises plastic strain")
+    plt.xlabel("Mises plastic strain (%)")
+    plt.ylabel("Mises stress (MPa)")
+    plt.grid(True)
+    for key in sim_to_plot_label.keys():
+        strain = all_results_dict[key]["vm_plastic_strain"]
+        stress = all_results_dict[key]["vm_stress"]
+        plt.plot(strain, stress, ls=sim_to_linestyle[key], label=sim_to_plot_label[key])
     plt.legend()
     plt.savefig(figname)
     plt.close()
