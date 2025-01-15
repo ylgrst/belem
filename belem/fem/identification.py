@@ -73,6 +73,36 @@ def write_dfa_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_pa
         file.write("N_dfa\t" + str(dfa_params[5]) + "\n")
         file.write("K_dfa\t" + str(dfa_params[6]) + "\n")
 
+def write_dfa_epchg_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_params: npt.NDArray[np.float_],
+                                        n_iso_hard: int, n_kin_hard: int,
+                                        list_parameters: List[parameter.Parameter], path: str = "keys/") -> None:
+    with open(path + "material.dat", "w+") as file:
+        file.write("Material\nName\tEPCHG\nNumber_of_material_parameters\t" + str(8+2*n_iso_hard+2*n_kin_hard+7) +
+                   "\nNumber_of_internal_variables\t" + str(9 + 12*n_kin_hard) + "\n\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n\n#Mechanical\n")
+        file.write("E\t" + str(elastic_params[0]) + "\n")
+        file.write("nu\t0.3\n")
+        file.write("G\t" + str(elastic_params[1]) + "\n")
+        file.write("alpha_iso\t1.E-6\n")
+        file.write("sigmaY\t" + list_parameters[0].key + "\n\n")
+        file.write("N_iso_hard\t" + str(n_iso_hard) + "\n")
+        file.write("N_kin_hard\t" + str(n_kin_hard) + "\n")
+        file.write("criteria\t2\n\n")
+        for i in range(n_iso_hard):
+            file.write("Q\t" + list_parameters[1+2*i].key + "\n")
+            file.write("b\t" + list_parameters[2+2*i].key + "\n")
+        file.write("\n")
+        for i in range(n_kin_hard):
+            file.write("C_" + str(i+1) + "\t" + list_parameters[1+n_iso_hard*2+i*2].key + "\n")
+            file.write("D_" + str(i+1) + "\t" + list_parameters[1+n_iso_hard*2+i*2+1].key + "\n")
+        file.write("\n")
+        file.write("F_dfa\t" + str(dfa_params[0]) + "\n")
+        file.write("G_dfa\t" + str(dfa_params[1]) + "\n")
+        file.write("H_dfa\t" + str(dfa_params[2]) + "\n")
+        file.write("L_dfa\t" + str(dfa_params[3]) + "\n")
+        file.write("M_dfa\t" + str(dfa_params[4]) + "\n")
+        file.write("N_dfa\t" + str(dfa_params[5]) + "\n")
+        file.write("K_dfa\t" + str(dfa_params[6]) + "\n")
+
 def write_path_id_file(filename: str, sim_type: str, path: str = "data/") -> None:
     intro = "#Initial_temperature\n290\n#Number_of_blocks\n1\n\n#Block\n1\n#Loading_type\n1\n#Control_type(NLGEOM)\n1\n#Repeat\n1\n#Steps\n3\n\n"
     step_mode = "#Mode\n1\n#Dn_init 1.\n#Dn_mini 1.\n#Dn_inc 0.01\n#time\n1\n"
@@ -284,7 +314,7 @@ def generate_all_default_files(path: str = "data/") -> None:
     generate_default_material_file(path=path)
 
 
-def compute_loss(parameters_to_optimize: List, elastic_params: npt.NDArray[np.float_],
+def compute_epdfa_loss(parameters_to_optimize: List[parameter.Parameter], elastic_params: npt.NDArray[np.float_],
                  dfa_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
                  results_dir: str = "results_id/") -> float:
 
@@ -317,6 +347,44 @@ def compute_loss(parameters_to_optimize: List, elastic_params: npt.NDArray[np.fl
     print(c)
 
     return c
+
+def compute_loss(parameters_to_optimize: List[parameter.Parameter], elastic_params: npt.NDArray[np.float_], n_iso_hard: int, n_kin_hard: int,
+                 dfa_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                 results_dir: str = "results_id/") -> float:
+
+    list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
+    list_output_file = []
+
+    umat_name = 'EPCHG'  # This is the 5 character code for the elastic-plastic subroutine
+    nstatev = 9 + 12*n_kin_hard  # The number of scalar variables required, only the initial temperature is stored here
+
+    nu = 0.3
+    alpha = 1.E-6
+    young_modulus, shear_modulus = elastic_params
+    psi_rve = 0.
+    theta_rve = 0.
+    phi_rve = 0.
+    criteria = 2
+
+    props_elast = np.array([young_modulus, nu, shear_modulus, alpha])
+    props_elast_yield = np.append(props_elast, np.array([parameters_to_optimize[0]]))
+    props_elast_yield_gen_params = np.append(props_elast_yield, np.array([n_iso_hard, n_kin_hard, criteria]))
+    props_temp = np.append(props_elast_yield_gen_params, np.array([parameters_to_optimize[i+1] for i in range(len(parameters_to_optimize)-1)]))
+    props = np.append(props_temp, dfa_params)
+
+    for i in range(len(list_path_file)):
+        output_file = f"results_EPCHG{i:02}.txt"
+        copied_output_file = f"results_EPCHG{i:02}_global-0.txt"
+        list_output_file.append(copied_output_file)
+        sim.solver(umat_name, props, nstatev, psi_rve, theta_rve, phi_rve, 0, 2, path_dir, results_dir, list_path_file[i],
+                   output_file)
+        shutil.copy(results_dir + copied_output_file, num_dir)
+
+    c = sim.calc_cost(len(list_output_file), list_output_file)
+    print(c)
+
+    return c
+
 
 def add_zero_to_equalize_array_length(array_x, array_y):
     x = np.copy(array_x)
