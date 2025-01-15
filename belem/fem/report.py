@@ -5,6 +5,8 @@ def import_extra_packages(doc: pl.document.Document):
     doc.packages.append(pl.Package('float'))
     doc.packages.append(pl.Package('titlepic'))
     doc.packages.append(pl.Package('babel', options="english"))
+    doc.preamble.append(pl.NoEscape(r"\renewcommand{\thefigure}{\hspace{-.333333em}}"))
+    doc.preamble.append(pl.NoEscape(r"\renewcommand{\thetable}{\hspace{-.333333em}}"))
 
 def center_all_floats(doc: pl.document.Document):
     doc.preamble.append(pl.NoEscape(r"\makeatletter"))
@@ -45,21 +47,32 @@ def generate_chapter_page(doc: pl.document.Document, shape: str):
 
     doc.append(pl.NewPage())
 
-def generate_section(doc: pl.document.Document, shape: str, density: float):
+def generate_section(doc: pl.document.Document, shape: str, density: float,response_curve_file_name: str,
+                     hardening_curve_file_name: str, dfa_yield_image_file: str, dfa_shear_yield_image_file: str,
+                     dfa_params_file: str, identification_graph_image_file: str, homogenized_law_parameters_file: str,
+                     young_modulus_file: str, shear_modulus_file: str):
     with doc.create(pl.Section(shape + " " + str(int(100*density)) + "%", numbering=False)):
-        generate_dfa_subsection(doc)
-        generate_identification_subsection(doc)
+        generate_response_curves_subsection(doc, response_curve_file_name)
+        generate_hardening_curves_subsection(doc, hardening_curve_file_name)
+        generate_dfa_subsection(doc, dfa_yield_image_file, dfa_shear_yield_image_file, dfa_params_file)
+        generate_identification_subsection(doc, identification_graph_image_file, homogenized_law_parameters_file, young_modulus_file, shear_modulus_file)
 
-def generate_response_curves_subsection(doc: pl.document.Document):
-    ...
+def generate_response_curves_subsection(doc: pl.document.Document, response_curve_file_name: str = "all_vm_stress_vm_strain.png"):
+    with doc.create(pl.Subsection("Simulated response curves", numbering=False)):
+        with doc.create(pl.Figure(position="H")) as resp_fig:
+            resp_fig.add_image(pl.NoEscape(response_curve_file_name), width=pl.NoEscape(r"0.8\textwidth"))
+            resp_fig.add_caption("Mises stress vs mises strain for different load cases")
 
-def generate_hardening_curves_subsection(doc: pl.document.Document):
-    ...
+def generate_hardening_curves_subsection(doc: pl.document.Document, hardening_curve_file_name: str = "all_vm_hardening.png"):
+    with doc.create(pl.Subsection("Simulated hardening curves", numbering=False)):
+        with doc.create(pl.Figure(position="H")) as hard_fig:
+            hard_fig.add_image(pl.NoEscape(hardening_curve_file_name), width=pl.NoEscape(r"0.8\textwidth"))
+            hard_fig.add_caption("Mises stress vs plastic mises strain for different load cases")
 
 def generate_stress_concentration_map_subsection(doc: pl.document.Document):
     ...
 
-def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str = "dfa_yield.png", dfa_shear_yield_image_file: str = "dfa_yield.png", dfa_params_file: str = "dfa_params.txt"):
+def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str = "dfa_yield.png", dfa_shear_yield_image_file: str = "dfa_yield_shear.png", dfa_params_file: str = "dfa_params.txt"):
 
     dfa_params = np.loadtxt(dfa_params_file)
 
@@ -89,7 +102,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
                                        homogenized_law_parameters_file: str, young_modulus_file: str,
                                        shear_modulus_file: str):
 
-    bulk_young_modulus = 147.7
+    bulk_young_modulus = 197.7
     young_modulus = np.loadtxt(young_modulus_file)*bulk_young_modulus/1000.0
     shear_modulus = np.loadtxt(shear_modulus_file)*bulk_young_modulus/1000.0
     homogenized_law_params = np.loadtxt(homogenized_law_parameters_file)
@@ -104,7 +117,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
                 law_param_table.add_hline()
                 law_param_table.add_row(("E", pl.Math(data=pl.NoEscape(r"\nu"), inline=True), "G", pl.Math(data=pl.NoEscape(r"\alpha"), inline=True), "Q", "b", pl.Math(data=pl.NoEscape("C_{1}"), inline=True), pl.Math(data=pl.NoEscape("D_{1}"), inline=True), pl.Math(data=pl.NoEscape("C_{2}"), inline=True), pl.Math(data=pl.NoEscape("D_{2}"), inline=True)))
                 law_param_table.add_hline()
-                law_param_table.add_row((np.round(young_modulus), 0.3, np.round(shear_modulus), 1e-6,
+                law_param_table.add_row((np.round(young_modulus, 2), 0.3, np.round(shear_modulus,2), 1e-6,
                                          np.round(homogenized_law_params[0], 2), np.round(homogenized_law_params[1], 2),
                                          np.round(homogenized_law_params[2], 2), np.round(homogenized_law_params[3], 2),
                                          np.round(homogenized_law_params[4], 2), np.round(homogenized_law_params[5], 2)))
