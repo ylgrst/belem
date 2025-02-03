@@ -8,7 +8,7 @@ from typing import List, Tuple
 import os
 import shutil
 import glob
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, root_mean_squared_error
 
 def get_dfa_parameters(filename: str) -> npt.NDArray[np.float_]:
     dfa_params = np.loadtxt(filename)
@@ -463,8 +463,48 @@ def plot_error(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]]
         iterations = np.array([i for i in range(len(mse))])
         for j in range(len(mse)):
             mse[j] = mean_squared_error([exp_stress[j]], [ident_stress[j]])
-        mse_r2_score = round(r2_score(exp_stress, ident_stress), 2)
+        mse_r2_score = round(r2_score(exp_stress.flatten(), ident_stress.flatten()), 3)
         plt.plot(iterations, mse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' MSE (r2 score: ' + str(mse_r2_score) + ')')
+
+    plt.legend()
+    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
+    plt.close()
+
+def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
+               exp_data_columns_to_plot: List[Tuple[int]],
+               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
+               graph_filename: str = "Figure_nrmse_dfa_chaboche.png") -> None:
+
+    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
+        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
+
+    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+
+    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
+        raise Exception("Number of files found does not correspond to sim_list length")
+
+    linestyle_list = ["-", "--", ":", "-."]
+
+    fig = plt.figure()
+    ax = plt.subplot(1, 1, 1)
+    plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel(r'Time', size=15)
+    plt.ylabel(r'NRMSE', size=15)
+
+    for i in range(len(sim_list)):
+        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
+        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
+
+        exp_strain, ident_stress = add_zero_to_equalize_array_length(exp_strain, ident_stress)
+        nrmse = np.zeros(len(ident_stress))
+        ground_truth_mean = np.mean(exp_stress)
+        iterations = np.array([i for i in range(len(nrmse))])
+        for j in range(len(nrmse)):
+            nrmse[j] = root_mean_squared_error([exp_stress[j]], [ident_stress[j]])/ground_truth_mean
+        reg_score = round(r2_score(exp_stress.flatten(), ident_stress.flatten()), 3)
+        plt.plot(iterations, nrmse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' NRMSE (r2 score: ' + str(reg_score) + ')')
 
     plt.legend()
     plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')

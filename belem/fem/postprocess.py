@@ -6,7 +6,7 @@ import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 
 
@@ -470,6 +470,32 @@ def build_yield_data_projected_to_all_directions(all_results_dict: dict[str, dic
     return yield_data, yield_data_stress, yield_data_pstrain
 
 
+def compute_all_sim_rp02_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]]) -> dict[str, float]:
+    plasticity_threshold = 0.2
+    stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["tension"]["vm_stress"], all_results_dict["tension"]["vm_plastic_strain"],
+        plasticity_threshold)
+    stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["compression"]["vm_stress"], all_results_dict["compression"]["vm_plastic_strain"],
+        plasticity_threshold)
+    stress_at_plastic_strain_threshold_biaxial_tension = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["biaxial_tension"]["vm_stress"],
+        all_results_dict["biaxial_tension"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_biaxial_compression = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["biaxial_compression"]["vm_stress"],
+        all_results_dict["biaxial_compression"]["vm_plastic_strain"], plasticity_threshold)
+    stress_at_plastic_strain_threshold_tencomp = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["tencomp"]["vm_stress"], all_results_dict["tencomp"]["vm_plastic_strain"],
+        plasticity_threshold)
+    stress_at_plastic_strain_threshold_shear = get_stress_tensor_at_plasticity_threshold(
+        all_results_dict["shear"]["vm_stress"], all_results_dict["shear"]["vm_plastic_strain"],
+        plasticity_threshold)
+
+    return {"tension": stress_at_plastic_strain_threshold_tension, "biaxial_tension": stress_at_plastic_strain_threshold_biaxial_tension,
+            "compression": stress_at_plastic_strain_threshold_compression, "biaxial_compression": stress_at_plastic_strain_threshold_biaxial_compression,
+            "tencomp": stress_at_plastic_strain_threshold_tencomp, "shear": stress_at_plastic_strain_threshold_shear}
+
+
 def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
     stress_at_plastic_strain_threshold_tension = get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["principal_stresses"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_compression = get_stress_tensor_at_plasticity_threshold(
@@ -681,6 +707,21 @@ def plot_yield_surface_evolution(tension_data: tuple[npt.NDArray[np.float_], npt
     plt.legend()
     plt.savefig(figname)
     plt.close()
+
+def analyse_last_frame(dataset: fd.MultiFrameDataSet) -> Tuple[float]:
+    """Computes max local plastic strain, ratio between max local and global plastic strains, and max local stress at 5% strain"""
+    dataset.load(-1)
+    mesh_volume = dataset.mesh.to_pyvista().volume
+    data_plastic_Ep = dataset.get_data(field="Statev", data_type="GaussPoint")[2:8]
+    data_vm_plastic_Ep = np.asarray(
+        [sim.Mises_strain(data_plastic_Ep[:, i]) for i in range(np.shape(data_plastic_Ep)[1])])
+    vol_avg_vm_plastic_Ep = dataset.mesh.integrate_field(field=data_vm_plastic_Ep,
+                                                         type_field="GaussPoint") / mesh_volume
+    data_vm_stress = dataset.get_data(field="Stress", component="vm", data_type="GaussPoint")
+    max_local_plastic_Ep = max(data_vm_plastic_Ep)
+    max_local_stress = max(data_vm_stress)
+
+    return (max_local_stress, max_local_plastic_Ep, max_local_plastic_Ep/vol_avg_vm_plastic_Ep)
 
 
 def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plasticity_threshold: float,
