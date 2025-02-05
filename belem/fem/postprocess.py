@@ -6,31 +6,45 @@ import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, NamedTuple
 from tqdm import tqdm
 
+class StrainFromDataset(NamedTuple):
+    """
+    Class to manage stress data from dataset
+    """
+    ref_node_id: int
+    ref_node_variable: str
 
-def compute_average_stress_strain_arrays(dataset: fd.MultiFrameDataSet, component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[
-    str, npt.NDArray[np.float_]]:
+def ref_node_id_to_mesh_node_id(ref_node_id: int) -> int:
+    if ref_node_id == 0:
+        mesh_node_id = -2
+    elif ref_node == 1:
+        mesh_node_id = -1
+    else:
+        raise ValueError("Invalid ref_node_id (select either 0 or 1)")
+
+    return mesh_node_id
+
+def compute_average_stress_strain_arrays(dataset: fd.MultiFrameDataSet, component: str,
+                                         strain_from_dataset: StrainFromDataset) -> dict[str, npt.NDArray[np.float_]]:
     """Returns average stress and strain arrays"""
     mesh_volume = dataset.mesh.to_pyvista().volume
     rve_volume = dataset.mesh.bounding_box.volume
     density = mesh_volume / rve_volume
     n_iter = dataset.n_iter
     stress_array = np.zeros(n_iter)
-    strain_array = 100 * np.linspace(0, max_strain, n_incr + 1)
-    if cycle:
-        relax_array = strain_array[::-1]
-        relax_array = np.delete(relax_array, 0)
-        reload_array = np.delete(strain_array, 0)
-        relax_reload_array = np.append(relax_array, reload_array)
-        strain_array = np.append(strain_array, relax_reload_array)
+    strain_array = np.zeros(n_iter)
     for i in range(n_iter):
         dataset.load(i)
         data_stress = dataset.get_data(field="Stress", component=component, data_type="GaussPoint")
         vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
                                                                                 type_field="GaussPoint")
         stress_array[i] = vol_avg_stress
+
+        strain = dataset.get_data(field="Disp", component=strain_from_dataset.ref_node_variable[-1],
+                                  data_type="Node")[ref_node_id_to_mesh_node_id(strain_from_dataset.ref_node_id)]
+        strain_array[i] = 100*strain
 
     return {"strain": strain_array, "stress": stress_array}
 
@@ -123,7 +137,8 @@ def compute_principal_stresses(dataset: fd.MultiFrameDataSet) -> npt.NDArray[np.
     return principal_stresses_array
 
 
-def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component: str, n_incr: int = 100, max_strain: np.float_ = 0.05, cycle: bool = False) -> dict[str, npt.NDArray[np.float_]]:
+def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component: str,
+                                        strain_from_dataset: StrainFromDataset) -> dict[str, npt.NDArray[np.float_]]:
     """Returns average stress and strain arrays, von mises stress array, von mises strain array,
     von mises plastic strain array, principal stresses arrays
     :param component: stress array component
@@ -132,14 +147,8 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
     rve_volume = dataset.mesh.bounding_box.volume
     density = mesh_volume / rve_volume
     n_iter = dataset.n_iter
-    strain_array = 100 * np.linspace(0, max_strain, int(n_incr + 1))
-    if cycle:
-        relax_array = strain_array[::-1]
-        relax_array = np.delete(relax_array, 0)
-        reload_array = np.delete(strain_array, 0)
-        relax_reload_array = np.append(relax_array, reload_array)
-        strain_array = np.append(strain_array, relax_reload_array)
     stress_array = np.zeros(n_iter)
+    strain_array = np.zeros(n_iter)
     stress_component_array_all_iter = np.zeros((n_iter, 6))
     vm_stress_array = np.zeros(n_iter)
     vm_strain_array = np.zeros(n_iter)
@@ -152,6 +161,10 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
         vol_avg_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_stress,
                                                                                 type_field="GaussPoint")
         stress_array[i] = vol_avg_stress
+
+        strain = dataset.get_data(field="Disp", component=strain_from_dataset.ref_node_variable[-1],
+                                  data_type="Node")[ref_node_id_to_mesh_node_id(strain_from_dataset.ref_node_id)]
+        strain_array[i] = 100 * strain
 
         data_vm_stress = dataset.get_data(field="Stress", component="vm", data_type="GaussPoint")
         vol_avg_vm_stress = (density / mesh_volume) * dataset.mesh.integrate_field(field=data_vm_stress,
@@ -188,38 +201,6 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
     output_dict["vm_plastic_strain"] = plastic_strain_array
     output_dict["principal_stresses"] = principal_stresses_array
     return output_dict
-
-
-def separate_tension_cycle_data(tension_cycle_dataset: fd.MultiFrameDataSet, n_incr_per_cycle: int = 100, max_strain: np.float_ = 0.05) -> tuple[dict[str, npt.NDArray[np.float_]]]:
-    all_cycles_data = compute_all_arrays_from_data_fields(tension_cycle_dataset, component = "XX", n_incr=n_incr_per_cycle, max_strain=max_strain, cycle=True)
-    tcycle_tension_data = {}
-    tcycle_compression_data = {}
-    t_cycle_reload_data = {}
-    for key in all_cycles_data.keys():
-        tcycle_tension_data[key] = all_cycles_data[key][:n_incr_per_cycle + 1]
-        tcycle_compression_data[key] = all_cycles_data[key][n_incr_per_cycle + 1:2 * n_incr_per_cycle + 1]
-        t_cycle_reload_data[key] = all_cycles_data[key][2 * n_incr_per_cycle + 1:]
-
-    return tcycle_tension_data, tcycle_compression_data, t_cycle_reload_data
-
-def save_separated_tension_cycle_data(tcycle_tension_data: dict[str, npt.NDArray[np.float_]], tcycle_compression_data: dict[str, npt.NDArray[np.float_]], tcycle_reload_data: dict[str, npt.NDArray[np.float_]]) -> None:
-    for key in tcycle_tension_data.keys():
-        np.savetxt("cycle_tension_1_" + key + ".txt", tcycle_tension_data[key])
-        np.savetxt("cycle_compression_2_" + key + ".txt", tcycle_compression_data[key])
-        np.savetxt("cycle_tension_3_" + key + ".txt", tcycle_reload_data[key])
-
-def plot_separated_tension_cycle(tcycle_tension_data: dict[str, npt.NDArray[np.float_]], tcycle_compression_data: dict[str, npt.NDArray[np.float_]], tcycle_reload_data: dict[str, npt.NDArray[np.float_]]) -> None:
-    plot_stress_strain(tcycle_tension_data["stress_component"], tcycle_tension_data["strain"], "cycle_tension_1_stress_strain.png")
-    plot_stress_strain(tcycle_tension_data["vm_stress"], tcycle_tension_data["vm_strain"], "cycle_tension_1_vm_stress_vm_strain.png")
-    plot_hardening(tcycle_tension_data["vm_stress"], tcycle_tension_data["vm_plastic_strain"], "cycle_tension_1_hardening")
-
-    plot_stress_strain(-tcycle_compression_data["stress_component"], -tcycle_compression_data["strain"], "cycle_compression_2_stress_strain.png")
-    plot_stress_strain(tcycle_compression_data["vm_stress"], tcycle_compression_data["vm_strain"], "cycle_compression_2_vm_stress_vm_strain.png")
-    plot_hardening(tcycle_compression_data["vm_stress"], tcycle_compression_data["vm_plastic_strain"], "cycle_compression_2_hardening")
-
-    plot_stress_strain(tcycle_reload_data["stress_component"], tcycle_reload_data["strain"], "cycle_reload_3_stress_strain.png")
-    plot_stress_strain(tcycle_reload_data["vm_stress"], tcycle_reload_data["vm_strain"], "cycle_reload_3_vm_stress_vm_strain.png")
-    plot_hardening(tcycle_reload_data["vm_stress"], tcycle_reload_data["vm_plastic_strain"], "cycle_reload_3_hardening")
 
 
 def create_plastic_strain_and_principal_stress_data(dataset: fd.MultiFrameDataSet) -> tuple[
