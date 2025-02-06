@@ -1,6 +1,6 @@
 import os
 import fedoo as fd
-from fedoo.core.boundary_conditions import BoundaryCondition
+from fedoo.core.boundary_conditions import ListBC, BoundaryCondition
 import numpy as np
 import numpy.typing as npt
 import pyvista as pv
@@ -84,8 +84,8 @@ def _reset_memory() -> None:
     fd.Assembly.delete_memory()
 
 
-def _create_load_case(load: Load, ref_node: npt.NDArray[int]) -> BoundaryCondition:
-    load_case = BoundaryCondition(load.boundary_condition_type,
-                                     ref_node[load.constraint_drivers_node_id],
-                                     load.constraint_drivers_variables, load.constraint_drivers_values)
+def _create_load_case(load: Load, ref_node: npt.NDArray[int]) -> ListBC:
+    load_case = BoundaryCondition.create(load.boundary_condition_type, ref_node[load.constraint_drivers_node_id],
+                                         load.constraint_drivers_variables, load.constraint_drivers_values)
+
     return load_case
