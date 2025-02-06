@@ -41,7 +41,7 @@ typesim_to_loads = {"tension": [tensile_load],
                     "shear_cycle": shear_cycle_loads}
 
 for typesim in typesim_to_loads.keys():
-    results_dir = str(Path(__file__).parent / typesim / "results/")
+    results_dir = str(Path(__file__).parent / typesim)
     output_file = typesim
     if not (os.path.isdir(results_dir)):
         os.mkdir(results_dir)
