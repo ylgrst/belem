@@ -4,10 +4,6 @@ import fedoo as fd
 from belem.fem.fea import Load, run_fea_computation
 
 meshfile = str(Path(__file__).parent.parent / "data/cuboct20_unit_cell.vtk")
-results_dir = str(Path(__file__).parent / "results/")
-output_file = "fea_example"
-if not (os.path.isdir(results_dir)):
-    os.mkdir(results_dir)
 
 material_law = "EPICP"
 
