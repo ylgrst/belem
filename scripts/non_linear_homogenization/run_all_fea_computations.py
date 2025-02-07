@@ -2,8 +2,9 @@ from pathlib import Path
 import numpy as np
 import fedoo as fd
 from belem.fem.fea import Load, run_fea_computation
+import os
 
-meshfile = str(Path(__file__).parent.parent / "data/cuboct20_unit_cell.vtk")
+meshfile = str(Path(__file__).parent.parent / "data/box.vtk")
 
 material_law = "EPICP"
 

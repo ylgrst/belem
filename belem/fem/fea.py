@@ -61,7 +61,7 @@ def run_fea_computation(mesh_filename: str,
     pb.set_solver("direct")
     pb.set_nr_criterion("Displacement", err0=1, tol=1e-4, max_subiter=10)
     pb.add_output(
-        results_dir + output_file_name,
+        results_dir + "/" + output_file_name,
         assembly,
         ["Disp", "Stress", "Strain", "Fext", "Statev"],
         file_format=output_file_ext,
