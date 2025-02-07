@@ -11,10 +11,46 @@ from tqdm import tqdm
 
 class StrainFromDataset(NamedTuple):
     """
-    Class to manage stress data from dataset
+    Class to manage strain data from dataset
     """
     ref_node_id: int
     ref_node_variable: str
+
+def postprocess_all_homogenization_computations(basedir: str) -> dict[str, dict[str, npt.NDArray[np.float_]]]:
+    """
+    Computes global stress, strain, Mises stress, Mises strain, principal stresses,
+    plastic mises strain and elapsed time for all load cases in non-linear homogenization process
+    :param basedir: base working directory for reading result files and writing output files
+    """
+    typesim_to_component_and_strain_dict: dict[str, Tuple[str, StrainFromDataset]] = {
+        "tension": ("XX", StrainFromDataset(0, "DispX")),
+        "biaxial_tension": ("XX", StrainFromDataset(0, "DispX")),
+        "compression": ("XX", StrainFromDataset(0, "DispX")),
+        "biaxial_compression": ("XX", StrainFromDataset(0, "DispX")),
+        "shear": ("XY", StrainFromDataset(1, "DispX")),
+        "tencomp": ("XX", StrainFromDataset(0, "DispX")),
+        "tension_cycle": ("XX", StrainFromDataset(0, "DispX")),
+        "biaxial_tension_cycle": ("XX", StrainFromDataset(0, "DispX")),
+        "shear_cycle": ("XY", StrainFromDataset(1, "DispX")),
+    }
+    all_results = {}
+    for typesim in typesim_to_component_and_strain_dict.keys():
+        print("Postprocessing " + typesim + " computation")
+        data_file = basedir + typesim + "/" + typesim + ".fdz"
+        data = fd.read_data(data_file)
+        max_local_stress, max_local_plastic_strain, plastic_strain_ratio = analyse_last_frame(data)
+        np.savetxt(basedir + typesim + "/sigma_vm_max_local.txt", np.array([max_local_stress]))
+        np.savetxt(basedir + typesim + "/max_local_plastic_strain.txt", np.array([max_local_plastic_strain]))
+        np.savetxt(basedir + typesim + "/ratio_local_vs_global_max_ep.txt", np.array([plastic_strain_ratio]))
+        results = compute_all_arrays_from_data_fields(dataset=data,
+                                                      component=typesim_to_component_and_strain_dict[typesim][0],
+                                                      strain_from_dataset=typesim_to_component_and_strain_dict[typesim][1])
+        all_results[typesim] = results
+        for key in results.keys():
+            np.savetxt(basedir + typesim + "/" + key + ".txt", results[key])
+
+    return all_results
+
 
 def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component: str,
                                         strain_from_dataset: StrainFromDataset) -> dict[str, npt.NDArray[np.float_]]:
@@ -200,9 +236,16 @@ def plot_yield_surface_evolution_from_all_results(all_results_dict: dict[str, di
     plt.savefig(figname)
     plt.close()
 
-def predict_plasticity_criterion_parameters(criterion: str,
-                                            all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
-                                            plasticity_threshold: float = 0.2) -> list[float]:
+def identify_plasticity_criterion_parameters(criterion: str,
+                                             all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
+                                             plasticity_threshold: float = 0.2) -> list[float]:
+    """
+    Identifies the selected plasticity criterion's parameters
+    PLEASE NOTE THIS METHOD IS ONLY APPLICABLE IN THE CASE OF CUBIC SYMMETRIES FOR THE MOMENT
+    :param criterion: plasticity criterion (hill, dfa or anisotropic)
+    :param all_results_dict: dictionary containing all analyzed results from non-linear homogenization FE computations
+    :param plasticity_threshold: global plastic strain value (in %) at which to compute yield surface. Default: 0.2%
+    """
     _, stress_tensor_dict, plasticity_array_dict = _build_yield_data_projected_to_all_directions(all_results_dict)
     sigma_eq_ident = _predict_vm_equivalent_stress(all_results_dict)
     if criterion == "hill":
@@ -229,11 +272,21 @@ def predict_plasticity_criterion_parameters(criterion: str,
     return criterion_params_ident.x
 
 def plot_criteria_yield_surface(criterion: str, all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
-                                criteria_params: list[float],
-                                figname: str = "identified_yield_surface") -> None:
-
+                                criteria_params: Optional[list[float]],
+                                figname: str = "identified_yield_surface.png") -> None:
+    """
+    Plots the identified yield surface for selected plasticity criterion in (11, 22) plane
+    :param criterion: plasticity criterion (hill, dfa or anisotropic)
+    :param all_results_dict: dictionary containing all analyzed results from non-linear homogenization FE computations
+    :param criteria_params: array of identified criterion parameters.
+    If not given, will run the parameter identification method
+    :param figname: name under which the plot will be saved
+    """
     sigma_eq_vm = _predict_vm_equivalent_stress(all_results_dict)
     yield_surface_data_s11, yield_surface_data_s22 = compute_yield_surface_data_from_all_results(all_results_dict, 0.2)
+
+    if criteria_params is None:
+        criteria_params = identify_plasticity_criterion_parameters(criterion, all_results_dict)
 
     inc = 1001
 
@@ -294,11 +347,21 @@ def plot_criteria_yield_surface(criterion: str, all_results_dict: dict[str, dict
     plt.close()
 
 def plot_criteria_shear_yield_surface(criterion: str, all_results_dict: dict[str, dict[str, npt.NDArray[np.float_]]],
-                                      criteria_params: list[float],
-                                      figname: str = "identified_shear_yield_surface") -> None:
-
+                                      criteria_params: Optional[list[float]],
+                                      figname: str = "identified_shear_yield_surface.png") -> None:
+    """
+    Plots the identified yield surface for selected plasticity criterion in (11, 12) plane
+    :param criterion: plasticity criterion (hill, dfa or anisotropic)
+    :param all_results_dict: dictionary containing all analyzed results from non-linear homogenization FE computations
+    :param criteria_params: array of identified criterion parameters.
+    If not given, will run the parameter identification method
+    :param figname: name under which the plot will be saved
+    """
     sigma_eq_vm = _predict_vm_equivalent_stress(all_results_dict)
     yield_surface_data_s11, yield_surface_data_s12 = compute_yield_shear_surface_data_from_all_results(all_results_dict, 0.2)
+
+    if criteria_params is None:
+        criteria_params = identify_plasticity_criterion_parameters(criterion, all_results_dict)
 
     inc = 1001
 
@@ -704,7 +767,7 @@ def multiplot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_cl
 def _ref_node_id_to_mesh_node_id(ref_node_id: int) -> int:
     if ref_node_id == 0:
         mesh_node_id = -2
-    elif ref_node == 1:
+    elif ref_node_id == 1:
         mesh_node_id = -1
     else:
         raise ValueError("Invalid ref_node_id (select either 0 or 1)")
