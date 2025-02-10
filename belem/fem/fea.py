@@ -92,6 +92,8 @@ def run_linear_homogenization(mesh_filename: str,
 
     effective_stiffness_tensor = fd.homogen.get_homogenized_stiffness(assembly)
 
+    _reset_memory()
+
     return effective_stiffness_tensor
 
 
