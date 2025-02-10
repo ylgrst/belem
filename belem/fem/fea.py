@@ -78,6 +78,23 @@ def run_fea_computation(mesh_filename: str,
 
     _reset_memory()
 
+def run_linear_homogenization(mesh_filename: str,
+                              young_modulus: float = 1.0e3,
+                              poisson_ratio: float = 0.3) -> npt.NDArray[np.float_]:
+
+    _reset_memory()
+
+    fd.ModelingSpace("3D")
+    mesh = fd.Mesh.read(mesh_filename)
+    material = fd.constitutivelaw.ElasticIsotrop(young_modulus, poisson_ratio)
+    weakform = fd.weakform.StressEquilibrium(material, nlgeom=False)
+    assembly = fd.Assembly.create(weakform, mesh, mesh.elm_type, name="Assembly")
+
+    effective_stiffness_tensor = fd.homogen.get_homogenized_stiffness(assembly)
+
+    return effective_stiffness_tensor
+
+
 def _reset_memory() -> None:
     if "_perturbation" in fd.Problem.get_all():
         del fd.Problem.get_all()["_perturbation"]
