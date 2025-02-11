@@ -170,7 +170,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
             doc.append(pl.HFill())
             with doc.create(pl.SubFigure(position='t', width=pl.NoEscape(r"0.48\textwidth"))) as error_ident_graph_pic:
                 error_ident_graph_pic.add_image(pl.NoEscape(error_graph_image_file), width=pl.NoEscape(r"\textwidth"))
-                error_ident_graph_pic.add_caption("Identification error (MSE) with respect to time")
+                error_ident_graph_pic.add_caption("Normalized identification error (RMSE) with respect to time")
             ident_graph_pic.add_caption("Identified homogenized law compared to FE analysis")
 
         with doc.create(pl.Table(position="H")) as law_param_tab:
@@ -217,7 +217,7 @@ def generate_chg_identification_subsection(doc: pl.document.Document, identifica
             doc.append(pl.HFill())
             with doc.create(pl.SubFigure(position='t', width=pl.NoEscape(r"0.48\textwidth"))) as error_ident_graph_pic:
                 error_ident_graph_pic.add_image(pl.NoEscape(error_graph_image_file), width=pl.NoEscape(r"\textwidth"))
-                error_ident_graph_pic.add_caption("Identification error (MSE) with respect to time")
+                error_ident_graph_pic.add_caption("Normalized identification error (RMSE) with respect to time")
             ident_graph_pic.add_caption("Identified homogenized law compared to FE analysis")
 
         with doc.create(pl.Table(position="H")) as law_param_tab:
