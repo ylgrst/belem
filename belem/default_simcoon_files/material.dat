@@ -1,0 +1,29 @@
+Material
+Name	EPDFA
+Number_of_material_parameters	17
+Number_of_internal_variables	33
+
+#Orientation
+psi	0
+theta	0
+phi	0
+
+#Mechanical
+E	2405.040177
+nu	0.3
+G	2405.040177
+alpha_iso	1.E-6
+sigmaY	66.775157
+Q	2441.737289
+b	481.737801
+C_1	145959.140084
+D_1	782.541931
+C_2	46511.503691
+D_2	210.544501
+F_dfa	0.36
+G_dfa	0.36
+H_dfa	0.36
+L_dfa	1.56
+M_dfa	1.56
+N_dfa	1.56
+K_dfa	0.2
