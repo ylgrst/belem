@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-class ColumnHeader(IntEnum):
+class ResultsColumnHeader(IntEnum):
     PHASE = 0
     BLOCK = 1
     STEP = 2
@@ -25,3 +25,9 @@ class ColumnHeader(IntEnum):
     REVERSIBLE_DEFORMATION_ENERGY = 21
     IRREVERSIBLE_DEFORMATION_ENERGY = 22
     DISSIPATED_DEFORMATION_ENERGY = 23
+
+class InputColumnHeader(IntEnum):
+    INCREMENT = 0
+    TIME = 1
+    STRAIN = 2
+    STRESS = 3

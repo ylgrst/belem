@@ -1,17 +1,20 @@
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
-from belem.utils import ColumnHeader
+from belem.utils import ResultsColumnHeader, InputColumnHeader
 from simcoon import simmit as sim
 from simcoon.parameter import Parameter
 from simcoon.data import Data, write_input_and_tab_files, write_files_exp
 from simcoon import parameter, data
-from typing import List, Tuple, Union
+from typing import List, Union
 import os
 import shutil
 import glob
 from sklearn.metrics import mean_squared_error, r2_score, root_mean_squared_error
 import importlib.resources
+from functools import partial
+
+np.float_ = np.float64
 
 N_COLUMNS_IN_RESULTS_FILE = 24
 
@@ -24,7 +27,7 @@ DEFAULT_MATERIAL_FILE = (importlib.resources.files(belem) / "default_simcoon_fil
 DEFAULT_SOLVER_CONTROL_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_control.inp").as_posix()
 DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_essentials.inp").as_posix()
 
-def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ColumnHeader]],
+def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ResultsColumnHeader]],
                                  parameters_to_optimize: List[Parameter],
                                  elastic_params: npt.NDArray[np.float_], n_iso_hard: int, n_kin_hard: int, criteria: str,
                                  criteria_params: npt.NDArray[np.float_], basedir: str) -> None:
@@ -51,16 +54,102 @@ def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_c
         _write_path_id_file(f"path_id_{i:02}.txt", sim_type, data_dir)
         i += 1
 
-def compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
+def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
                        n_iso_hard: int, n_kin_hard: int, criteria: str,
                        criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
-                       results_dir: str = "results_id/") -> float:
+                       results_dir: str = "results_id/", **kwargs) -> npt.NDArray[np.float_]:
+
+    loss = partial(_compute_epchg_loss, elastic_params=elastic_params, n_iso_hard=n_iso_hard, n_kin_hard=n_kin_hard,
+                   criteria=criteria, criteria_params=criteria_params, path_dir=path_dir, num_dir=num_dir,
+                   results_dir=results_dir)
+
+    bounds_min_max = Bounds(np.array([parameter.bounds[0] for parameter in parameters_to_optimize]),
+                            np.array([parameter.bounds[1] for parameter in parameters_to_optimize]))
+    optim_array = differential_evolution(loss, bounds_min_max, kwargs)
+    return optim_array.x
+
+def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[List[ResultsColumnHeader]],
+               exp_data_columns_to_plot: List[List[InputColumnHeader]],
+               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
+               graph_filename: str = "Figure_results_dfa_chaboche.png") -> None:
+
+    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
+        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
+
+    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+
+    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
+        raise Exception("Number of files found does not correspond to sim_list length")
+
+    linestyle_list = ["-", "--", ":", "-."]
+
+    plt.figure()
+    plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel(r'Strain', size=15)
+    plt.ylabel(r'Stress (MPa)', size=15)
+
+    for i in range(len(sim_list)):
+        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=[column.value for column in exp_data_columns_to_plot[i]], unpack=True, skiprows=1)
+        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=[column.value for column in ident_data_columns_to_plot[i]], unpack=True)
+        plt.plot(exp_strain, exp_stress, c="black", ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + " simulation")
+        plt.plot(ident_strain, ident_stress, c="red", ls=linestyle_list[i%len(linestyle_list)],
+                 label=sim_list[i] + " identification")
+
+    plt.legend()
+    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
+    plt.close()
+
+def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[List[ResultsColumnHeader]],
+               exp_data_columns_to_plot: List[List[InputColumnHeader]],
+               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
+               graph_filename: str = "Figure_nrmse_dfa_chaboche.png") -> None:
+
+    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
+        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
+
+    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+
+    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
+        raise Exception("Number of files found does not correspond to sim_list length")
+
+    linestyle_list = ["-", "--", ":", "-."]
+
+    plt.figure()
+    plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel(r'Time', size=15)
+    plt.ylabel(r'NRMSE', size=15)
+
+    for i in range(len(sim_list)):
+        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=[column.value for column in exp_data_columns_to_plot[i]], unpack=True, skiprows=1)
+        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=[column.value for column in ident_data_columns_to_plot[i]], unpack=True)
+
+        exp_strain, ident_stress = _add_zero_to_equalize_array_length(exp_strain, ident_stress)
+        nrmse = np.zeros(len(ident_stress))
+        ground_truth_mean = np.mean(exp_stress)
+        iterations = np.array([i for i in range(len(nrmse))])
+        for j in range(len(nrmse)):
+            nrmse[j] = root_mean_squared_error([exp_stress[j]], [ident_stress[j]])/ground_truth_mean
+        reg_score = round(r2_score(exp_stress.flatten(), ident_stress.flatten()), 3)
+        plt.plot(iterations, nrmse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' NRMSE (r2 score: ' + str(reg_score) + ')')
+
+    plt.legend()
+    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
+    plt.close()
+
+def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
+                        n_iso_hard: int, n_kin_hard: int, criteria: str,
+                        criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                        results_dir: str = "results_id/") -> float:
 
     list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
     list_output_file = []
 
-    umat_name = 'EPCHG'  # This is the 5 character code for the elastic-plastic subroutine
-    nstatev = 9 + 12*n_kin_hard  # The number of scalar variables required, only the initial temperature is stored here
+    umat_name = 'EPCHG'
+    nstatev = 9 + 12*n_kin_hard
 
     psi_rve = 0.
     theta_rve = 0.
@@ -92,12 +181,11 @@ def compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: 
         shutil.copy(results_dir + copied_output_file, num_dir)
 
     c = sim.calc_cost(len(list_output_file), list_output_file)
-    print(c)
 
     return c
 
 def _write_files_num(
-    list_columns_to_compare: List[List[ColumnHeader]],
+    list_columns_to_compare: List[List[ResultsColumnHeader]],
     path: str = "data/",
 ) -> None:
     columns_in_files = "NUMNb_columnsinfiles\n"
@@ -274,40 +362,6 @@ def _copy_all_default_files(path: str = "data/") -> None:
     shutil.copy(DEFAULT_MATERIAL_FILE, path)
 
 
-def compute_epdfa_loss(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
-                 dfa_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
-                 results_dir: str = "results_id/") -> float:
-
-    list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
-    list_output_file = []
-
-    umat_name = 'EPDFA'  # This is the 5 character code for the elastic-plastic subroutine
-    nstatev = 33  # The number of scalar variables required, only the initial temperature is stored here
-
-    nu = 0.3
-    alpha = 1.E-6
-    young_modulus, shear_modulus = elastic_params
-    psi_rve = 0.
-    theta_rve = 0.
-    phi_rve = 0.
-
-    props_elast = np.array([young_modulus, nu, shear_modulus, alpha])
-    props_temp = np.append(props_elast, np.array([parameters_to_optimize[i] for i in range(len(parameters_to_optimize))]))
-    props = np.append(props_temp, dfa_params)
-
-    for i in range(len(list_path_file)):
-        output_file = f"results_EPDFA{i:02}.txt"
-        copied_output_file = f"results_EPDFA{i:02}_global-0.txt"
-        list_output_file.append(copied_output_file)
-        sim.solver(umat_name, props, nstatev, psi_rve, theta_rve, phi_rve, 0, 2, path_dir, results_dir, list_path_file[i],
-                   output_file)
-        shutil.copy(results_dir + copied_output_file, num_dir)
-
-    c = sim.calc_cost(len(list_output_file), list_output_file)
-    print(c)
-
-    return c
-
 def _add_zero_to_equalize_array_length(array_x, array_y):
     x = np.copy(array_x)
     y = np.copy(array_y)
@@ -318,113 +372,3 @@ def _add_zero_to_equalize_array_length(array_x, array_y):
     else:
         return x, y
     return x, y
-
-def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
-               exp_data_columns_to_plot: List[Tuple[int]],
-               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
-               graph_filename: str = "Figure_results_dfa_chaboche.png") -> None:
-
-    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
-        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
-
-    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
-    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
-
-    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
-        raise Exception("Number of files found does not correspond to sim_list length")
-
-    linestyle_list = ["-", "--", ":", "-."]
-
-    plt.figure()
-    plt.grid(True)
-    plt.tick_params(axis='both', which='major', labelsize=15)
-    plt.xlabel(r'Strain', size=15)
-    plt.ylabel(r'Stress (MPa)', size=15)
-
-    for i in range(len(sim_list)):
-        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
-        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
-        plt.plot(exp_strain, exp_stress, c="black", ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + " simulation")
-        plt.plot(ident_strain, ident_stress, c="red", ls=linestyle_list[i%len(linestyle_list)],
-                 label=sim_list[i] + " identification")
-
-    plt.legend()
-    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
-    plt.close()
-
-def plot_error(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
-               exp_data_columns_to_plot: List[Tuple[int]],
-               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
-               graph_filename: str = "Figure_error_dfa_chaboche.png") -> None:
-
-    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
-        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
-
-    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
-    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
-
-    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
-        raise Exception("Number of files found does not correspond to sim_list length")
-
-    linestyle_list = ["-", "--", ":", "-."]
-
-    plt.figure()
-    plt.grid(True)
-    plt.tick_params(axis='both', which='major', labelsize=15)
-    plt.xlabel(r'Time', size=15)
-    plt.ylabel(r'MSE', size=15)
-
-    for i in range(len(sim_list)):
-        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
-        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
-
-        exp_strain, ident_stress = _add_zero_to_equalize_array_length(exp_strain, ident_stress)
-        mse = np.zeros(len(ident_stress))
-        iterations = np.array([i for i in range(len(mse))])
-        for j in range(len(mse)):
-            mse[j] = mean_squared_error([exp_stress[j]], [ident_stress[j]])
-        mse_r2_score = round(r2_score(exp_stress.flatten(), ident_stress.flatten()), 3)
-        plt.plot(iterations, mse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' MSE (r2 score: ' + str(mse_r2_score) + ')')
-
-    plt.legend()
-    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
-    plt.close()
-
-def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[Tuple[int]],
-               exp_data_columns_to_plot: List[Tuple[int]],
-               path_results_id: str = "results_id/", path_exp: str = "exp_data/",
-               graph_filename: str = "Figure_nrmse_dfa_chaboche.png") -> None:
-
-    if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
-        raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
-
-    list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
-    list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
-
-    if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
-        raise Exception("Number of files found does not correspond to sim_list length")
-
-    linestyle_list = ["-", "--", ":", "-."]
-
-    plt.figure()
-    plt.grid(True)
-    plt.tick_params(axis='both', which='major', labelsize=15)
-    plt.xlabel(r'Time', size=15)
-    plt.ylabel(r'NRMSE', size=15)
-
-    for i in range(len(sim_list)):
-        exp_strain, exp_stress = np.loadtxt(path_exp + list_exp_data_file[i], usecols=exp_data_columns_to_plot[i], unpack=True, skiprows=1)
-        ident_strain, ident_stress = np.loadtxt(path_results_id + list_ident_data_file[i], usecols=ident_data_columns_to_plot[i], unpack=True)
-
-        exp_strain, ident_stress = _add_zero_to_equalize_array_length(exp_strain, ident_stress)
-        nrmse = np.zeros(len(ident_stress))
-        ground_truth_mean = np.mean(exp_stress)
-        iterations = np.array([i for i in range(len(nrmse))])
-        for j in range(len(nrmse)):
-            nrmse[j] = root_mean_squared_error([exp_stress[j]], [ident_stress[j]])/ground_truth_mean
-        reg_score = round(r2_score(exp_stress.flatten(), ident_stress.flatten()), 3)
-        plt.plot(iterations, nrmse, ls=linestyle_list[i%len(linestyle_list)], label=sim_list[i] + ' NRMSE (r2 score: ' + str(reg_score) + ')')
-
-    plt.legend()
-    plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
-    plt.close()
