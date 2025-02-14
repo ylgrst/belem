@@ -71,7 +71,7 @@ def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_pa
 def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[List[ResultsColumnHeader]],
                exp_data_columns_to_plot: List[List[InputColumnHeader]],
                path_results_id: str = "results_id/", path_exp: str = "exp_data/",
-               graph_filename: str = "Figure_results_dfa_chaboche.png") -> None:
+               graph_filename: str = "identification_results.png") -> None:
 
     if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
         raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
@@ -104,7 +104,7 @@ def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[List[Result
 def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[List[ResultsColumnHeader]],
                exp_data_columns_to_plot: List[List[InputColumnHeader]],
                path_results_id: str = "results_id/", path_exp: str = "exp_data/",
-               graph_filename: str = "Figure_nrmse_dfa_chaboche.png") -> None:
+               graph_filename: str = "identification_nrmse_error.png") -> None:
 
     if len(sim_list) != len(ident_data_columns_to_plot) or len(sim_list) != len(exp_data_columns_to_plot) or len(ident_data_columns_to_plot) != len(exp_data_columns_to_plot):
         raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
