@@ -1,10 +1,10 @@
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
-import math as m
+from belem.utils import ColumnHeader
 from simcoon import simmit as sim
 from simcoon.parameter import Parameter
-from simcoon.data import Data, write_input_and_tab_files, write_files_exp, write_files_num
+from simcoon.data import Data, write_input_and_tab_files, write_files_exp
 from simcoon import parameter, data
 from typing import List, Tuple, Union
 import os
@@ -12,6 +12,8 @@ import shutil
 import glob
 from sklearn.metrics import mean_squared_error, r2_score, root_mean_squared_error
 import importlib.resources
+
+N_COLUMNS_IN_RESULTS_FILE = 24
 
 DEFAULT_CONSTANTS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "constants.inp").as_posix()
 DEFAULT_WEIGHTS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "file_weights.inp").as_posix()
@@ -22,10 +24,15 @@ DEFAULT_MATERIAL_FILE = (importlib.resources.files(belem) / "default_simcoon_fil
 DEFAULT_SOLVER_CONTROL_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_control.inp").as_posix()
 DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_essentials.inp").as_posix()
 
-def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[Union[str, int]]],
+def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ColumnHeader]],
                                  parameters_to_optimize: List[Parameter],
                                  elastic_params: npt.NDArray[np.float_], n_iso_hard: int, n_kin_hard: int, criteria: str,
                                  criteria_params: npt.NDArray[np.float_], basedir: str) -> None:
+
+    if len(list_data) != len(list_columns_to_compare):
+        raise IndexError(
+            "list_data and list_columns_to_compare must have the same length"
+        )
 
     exp_dir = basedir + "/exp_data"
     data_dir = basedir + "/data"
@@ -34,7 +41,7 @@ def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_c
     _create_ident_folders(basedir)
     write_input_and_tab_files(data_to_identify, exp_dir, data_dir)
     write_files_exp(data_to_identify, exp_dir, data_dir)
-    write_files_num(data_to_identify, list_columns_to_compare, data_dir)
+    _write_files_num(list_columns_to_compare, data_dir)
     _copy_all_default_files(data_dir)
     _write_parameter_input_file(parameters_to_optimize, data_dir)
     _write_epchg_material_input_file(elastic_params, criteria, criteria_params, n_iso_hard, n_kin_hard,
@@ -88,6 +95,21 @@ def compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: 
     print(c)
 
     return c
+
+def _write_files_num(
+    list_columns_to_compare: List[List[ColumnHeader]],
+    path: str = "data/",
+) -> None:
+    columns_in_files = "NUMNb_columnsinfiles\n"
+    columns_to_identify = "\nNUMNb_colums_to_identify\n"
+    for columns_to_compare in list_columns_to_compare:
+        columns_in_files += f"{N_COLUMNS_IN_RESULTS_FILE}\n"
+        converted_columns = "\t".join([str(column.value) for column in columns_to_compare]) +"\n"
+        columns_to_identify += converted_columns
+    with open(path + "files_num.inp", "w+") as file:
+        file.write(columns_in_files)
+        file.write(columns_to_identify)
+
 
 def _write_parameter_input_file(list_parameters: List[Parameter], path: str = "data/") -> None:
     with open(path + "parameter.inp", "w+") as file:
