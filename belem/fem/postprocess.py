@@ -2,7 +2,6 @@ import numpy as np
 import numpy.typing as npt
 import fedoo as fd
 import matplotlib.pyplot as plt
-import math as m
 from simcoon import simmit as sim
 from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
