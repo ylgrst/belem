@@ -20,12 +20,12 @@ elastic_params = np.array([bulk_material_young*shape_young[0], poisson_ratio,
 
 criteria_params = np.loadtxt(str(Path(__file__).parent) + "/dfa_params.txt")
 
-sigma_y = Parameter(0, (10.0, 400.0), "@0p", ["material.dat"])
-Q = Parameter(1, (5.0, 500.0), "@1p", ["material.dat"])
+sigma_y = Parameter(0, (1.0, 400.0), "@0p", ["material.dat"])
+Q = Parameter(1, (1.0, 500.0), "@1p", ["material.dat"])
 b = Parameter(2, (1.0, 1000.0), "@2p", ["material.dat"])
-C_1 = Parameter(3, (100.0, 30000.0), "@3p", ["material.dat"])
+C_1 = Parameter(3, (100.0, 300000.0), "@3p", ["material.dat"])
 D_1 = Parameter(4, (5.0, 1000.0), "@4p", ["material.dat"])
-C_2 = Parameter(5, (50.0, 10000.0), "@5p", ["material.dat"])
+C_2 = Parameter(5, (50.0, 100000.0), "@5p", ["material.dat"])
 D_2 = Parameter(6, (10.0, 1000.0), "@6p", ["material.dat"])
 list_parameters_to_identify = [sigma_y, Q, b, C_1, D_1, C_2, D_2]
 
