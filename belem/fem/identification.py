@@ -85,7 +85,9 @@ def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[List[Result
         raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
 
     list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_ident_data_file.sort()
     list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+    list_exp_data_file.sort()
 
     if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
         raise Exception("Number of files found does not correspond to sim_list length")
@@ -118,7 +120,9 @@ def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[List[Result
         raise IndexError("sim_list, ident_data_columns and exp_data_columns must be of same length")
 
     list_ident_data_file = glob.glob("results_*_global-0.txt", root_dir=path_results_id)
+    list_ident_data_file.sort()
     list_exp_data_file = glob.glob("input_data_*.txt", root_dir=path_exp)
+    list_exp_data_file.sort()
 
     if len(list_ident_data_file) != len(sim_list) or len(list_exp_data_file) != len(sim_list):
         raise Exception("Number of files found does not correspond to sim_list length")
@@ -154,6 +158,7 @@ def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params:
                         results_dir: str = "results_id/") -> float:
 
     list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
+    list_path_file.sort()
     list_output_file = []
 
     umat_name = 'EPCHG'
@@ -181,8 +186,8 @@ def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params:
     props = np.append(props_temp, criteria_params)
 
     for i in range(len(list_path_file)):
-        output_file = f"results_EPCHG{i:02}.txt"
-        copied_output_file = f"results_EPCHG{i:02}_global-0.txt"
+        output_file = f"results_EPCHG{i+1:02}.txt"
+        copied_output_file = f"results_EPCHG{i+1:02}_global-0.txt"
         list_output_file.append(copied_output_file)
         sim.solver(umat_name, props, nstatev, psi_rve, theta_rve, phi_rve, 0, 2, path_dir, results_dir, list_path_file[i],
                    output_file)
