@@ -5,8 +5,9 @@ from belem.utils import ResultsColumnHeader, InputColumnHeader
 from simcoon import simmit as sim
 from simcoon.parameter import Parameter
 from simcoon.data import Data, write_input_and_tab_files, write_files_exp
-from simcoon import parameter, data
-from typing import List, Union
+from typing import List, Union, Optional
+from pathlib import Path
+from scipy.optimize import differential_evolution, Bounds
 import os
 import shutil
 import glob
@@ -18,28 +19,28 @@ np.float_ = np.float64
 
 N_COLUMNS_IN_RESULTS_FILE = 24
 
-DEFAULT_CONSTANTS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "constants.inp").as_posix()
-DEFAULT_WEIGHTS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "file_weights.inp").as_posix()
-DEFAULT_GEN_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "gen0.inp").as_posix()
-DEFAULT_IDENT_CONTROL_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "ident_control.inp").as_posix()
-DEFAULT_IDENT_ESSENTIALS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "ident_essentials.inp").as_posix()
-DEFAULT_MATERIAL_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "material.dat").as_posix()
-DEFAULT_SOLVER_CONTROL_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_control.inp").as_posix()
-DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(belem) / "default_simcoon_files" / "solver_essentials.inp").as_posix()
+DEFAULT_CONSTANTS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "constants.inp").as_posix()
+DEFAULT_WEIGHTS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "files_weights.inp").as_posix()
+DEFAULT_GEN_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "gen0.inp").as_posix()
+DEFAULT_IDENT_CONTROL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "ident_control.inp").as_posix()
+DEFAULT_IDENT_ESSENTIALS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "ident_essentials.inp").as_posix()
+DEFAULT_MATERIAL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "material.dat").as_posix()
+DEFAULT_SOLVER_CONTROL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "solver_control.inp").as_posix()
+DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "solver_essentials.inp").as_posix()
 
 def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ResultsColumnHeader]],
                                  parameters_to_optimize: List[Parameter],
                                  elastic_params: npt.NDArray[np.float_], n_iso_hard: int, n_kin_hard: int, criteria: str,
                                  criteria_params: npt.NDArray[np.float_], basedir: str) -> None:
 
-    if len(list_data) != len(list_columns_to_compare):
+    if len(data_to_identify) != len(list_columns_to_compare):
         raise IndexError(
             "list_data and list_columns_to_compare must have the same length"
         )
 
-    exp_dir = basedir + "/exp_data"
-    data_dir = basedir + "/data"
-    keys_dir = basedir + "/keys"
+    exp_dir = basedir + "/exp_data/"
+    data_dir = basedir + "/data/"
+    keys_dir = basedir + "/keys/"
 
     _create_ident_folders(basedir)
     write_input_and_tab_files(data_to_identify, exp_dir, data_dir)
@@ -55,9 +56,12 @@ def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_c
         i += 1
 
 def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
-                       n_iso_hard: int, n_kin_hard: int, criteria: str,
-                       criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
-                       results_dir: str = "results_id/", **kwargs) -> npt.NDArray[np.float_]:
+                             n_iso_hard: int, n_kin_hard: int, criteria: str,
+                             criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                             results_dir: str = "results_id/", args=(), strategy='best1bin', maxiter=1000, popsize=15,
+                             tol=0.01, mutation=(0.5, 1), recombination=0.7, rng=None, callback=None, disp=False,
+                             polish=True, init='latinhypercube', atol=0, updating='immediate', workers=1,
+                             constraints=(), x0=None, integrality=None, vectorized=False) -> npt.NDArray[np.float_]:
 
     loss = partial(_compute_epchg_loss, elastic_params=elastic_params, n_iso_hard=n_iso_hard, n_kin_hard=n_kin_hard,
                    criteria=criteria, criteria_params=criteria_params, path_dir=path_dir, num_dir=num_dir,
@@ -65,7 +69,11 @@ def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_pa
 
     bounds_min_max = Bounds(np.array([parameter.bounds[0] for parameter in parameters_to_optimize]),
                             np.array([parameter.bounds[1] for parameter in parameters_to_optimize]))
-    optim_array = differential_evolution(loss, bounds_min_max, kwargs)
+    optim_array = differential_evolution(loss, bounds_min_max, args=args, strategy=strategy, maxiter=maxiter,
+                                         popsize=popsize, tol=tol, mutation=mutation, recombination=recombination,
+                                         rng=rng, callback=callback, disp=disp, polish=polish, init=init, atol=atol,
+                                         updating=updating, workers=workers, constraints=constraints, x0=x0,
+                                         integrality=integrality, vectorized=vectorized)
     return optim_array.x
 
 def plot_graph(sim_list: List[str], ident_data_columns_to_plot: List[List[ResultsColumnHeader]],

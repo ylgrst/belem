@@ -7,6 +7,7 @@ from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
 from typing import Optional, Union, List, Tuple, NamedTuple
 from tqdm import tqdm
+np.float_ = np.float64
 
 class StrainFromDataset(NamedTuple):
     """

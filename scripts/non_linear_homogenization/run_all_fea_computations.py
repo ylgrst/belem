@@ -4,16 +4,16 @@ import fedoo as fd
 from belem.fem.fea import Load, run_fea_computation
 import os
 
-meshfile = str(Path(__file__).parent.parent / "data/box.vtk")
+meshfile = str(Path(__file__).parent.parent / "data/cuboct20_unit_cell.vtk")
 
 material_law = "EPICP"
 
 E = 200e3
 nu = 0.3
 alpha = 1e-5  # CTE
-Re = 500.0
-k = 600.0
-m = 0.2
+Re = 800.0
+k = 700.0
+m = 0.1
 props = np.array([E, nu, alpha, Re, k, m])
 
 tensile_load = Load("Dirichlet", [0], ["DispX"], [0.05]) #5% tensile strain along x

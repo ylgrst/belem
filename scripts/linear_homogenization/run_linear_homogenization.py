@@ -5,7 +5,7 @@ import elana
 from belem.fem.fea import run_linear_homogenization
 
 basedir = str(Path(__file__).parent) + "/"
-meshfile = str(Path(__file__).parent.parent / "data/box.vtk")
+meshfile = str(Path(__file__).parent.parent / "data/cuboct20_unit_cell.vtk")
 
 effective_stiffness_tensor = run_linear_homogenization(mesh_filename=meshfile, young_modulus=1.0e3, poisson_ratio=0.3)
 
