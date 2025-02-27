@@ -54,7 +54,7 @@ def generate_chapter_page(doc: pl.document.Document, shape: str, shape_image: st
 def generate_section(doc: pl.document.Document, basedir: str, shape: str, density: float,response_curve_file_name: str,
                      hardening_curve_file_name: str, dfa_yield_image_file: str, dfa_shear_yield_image_file: str,
                      dfa_params_file: str, identification_graph_image_file: str, error_graph_image_file: str,
-                     homogenized_law_parameters_file: str, young_modulus_file: str, shear_modulus_file: str):
+                     homogenized_law_parameters_file: str, stiffness_tensor_file: str):
     with doc.create(pl.Section(shape + " " + str(int(100*density)) + "%", numbering=False)):
         #generate_response_curves_subsection(doc, response_curve_file_name)
         #generate_hardening_curves_subsection(doc, hardening_curve_file_name)
@@ -62,7 +62,7 @@ def generate_section(doc: pl.document.Document, basedir: str, shape: str, densit
         generate_dfa_subsection(doc, dfa_yield_image_file, dfa_shear_yield_image_file, dfa_params_file)
         #generate_identification_subsection(doc, identification_graph_image_file, error_graph_image_file, homogenized_law_parameters_file, young_modulus_file, shear_modulus_file)
         generate_chg_identification_subsection(doc, identification_graph_image_file, error_graph_image_file,
-                                           homogenized_law_parameters_file, young_modulus_file, shear_modulus_file)
+                                           homogenized_law_parameters_file, stiffness_tensor_file)
     doc.append(pl.NewPage())
 
 def generate_response_curves_subsection(doc: pl.document.Document, response_curve_file_name: str = "all_vm_stress_vm_strain.png"):
