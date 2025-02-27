@@ -12,10 +12,9 @@ os.makedirs(basedir, exist_ok=True)
 
 bulk_material_young = 200.0
 stiffness_tensor = np.loadtxt(str(Path(os.path.realpath(__file__)).parent.parent) + "/data/cuboct20_effective_stiffness_tensor.txt")
-shape_young, _, shape_shear = sim.L_cubic_props(stiffness_tensor)
-poisson_ratio = 0.3
+shape_young, shape_poisson, shape_shear = sim.L_cubic_props(stiffness_tensor)
 thermal_expansion_coefficient = 1e-6
-elastic_params = np.array([bulk_material_young*shape_young[0], poisson_ratio,
+elastic_params = np.array([bulk_material_young*shape_young[0], shape_poisson[0],
                            bulk_material_young*shape_shear[0], thermal_expansion_coefficient])
 
 criteria_params = np.loadtxt(str(Path(__file__).parent) + "/dfa_params.txt")
