@@ -34,6 +34,7 @@ dependencies = [
     "pandas",
     "scikit-learn",
     "pylatex",
+    "tqdm",
     ]
 dynamic = ["version"]
 
