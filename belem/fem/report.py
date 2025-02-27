@@ -180,7 +180,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
                 law_param_table.add_row(("Parameter", "Value"))
                 law_param_table.add_hline()
                 law_param_table.add_row(("E (GPa)", np.round(young_modulus, 2)))
-                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio, 3)))
+                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio[0], 4)))
                 law_param_table.add_row(("G (GPa)", np.round(shear_modulus,2)))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\alpha"), inline=True), 1e-6))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\sigma_Y (MPa)"), inline=True), np.round(homogenized_law_params[0], 2)))
@@ -227,7 +227,7 @@ def generate_chg_identification_subsection(doc: pl.document.Document, identifica
                 law_param_table.add_row(("Parameter", "Value"))
                 law_param_table.add_hline()
                 law_param_table.add_row(("E (GPa)", np.round(young_modulus, 2)))
-                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio, 3)))
+                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio[0], 4)))
                 law_param_table.add_row(("G (GPa)", np.round(shear_modulus,2)))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\alpha"), inline=True), 1e-6))
                 law_param_table.add_row(
