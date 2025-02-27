@@ -226,8 +226,8 @@ def _write_dfa_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_p
     with open(path + "material.dat", "w+") as file:
         file.write("Material\nName\tEPDFA\nNumber_of_material_parameters\t17\nNumber_of_internal_variables\t33\n\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n\n#Mechanical\n")
         file.write("E\t" + str(elastic_params[0]) + "\n")
-        file.write("nu\t0.3\n")
-        file.write("G\t" + str(elastic_params[1]) + "\n")
+        file.write("nu\t" + str(elastic_params[1]) +"\n")
+        file.write("G\t" + str(elastic_params[2]) + "\n")
         file.write("alpha_iso\t1.E-6\n")
         file.write("sigmaY\t" + list_parameters[0].key + "\n")
         file.write("Q\t" + list_parameters[1].key + "\n")
@@ -251,8 +251,8 @@ def _write_dfa_epchg_material_input_file(dfa_params: npt.NDArray[np.float_], ela
         file.write("Material\nName\tEPCHG\nNumber_of_material_parameters\t" + str(8+2*n_iso_hard+2*n_kin_hard+7) +
                    "\nNumber_of_internal_variables\t" + str(9 + 12*n_kin_hard) + "\n\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n\n#Mechanical\n")
         file.write("E\t" + str(elastic_params[0]) + "\n")
-        file.write("nu\t0.3\n")
-        file.write("G\t" + str(elastic_params[1]) + "\n")
+        file.write("nu\t" + str(elastic_params[1]) + "\n")
+        file.write("G\t" + str(elastic_params[2]) + "\n")
         file.write("alpha_iso\t1.E-6\n")
         file.write("sigmaY\t" + list_parameters[0].key + "\n\n")
         file.write("N_iso_hard\t" + str(n_iso_hard) + "\n")
