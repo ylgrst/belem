@@ -1,5 +1,6 @@
 import pylatex as pl
 import numpy as np
+from simcoon import simmit as sim
 
 def import_extra_packages(doc: pl.document.Document):
     doc.packages.append(pl.Package('float'))
@@ -154,12 +155,12 @@ def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str
 
 def generate_identification_subsection(doc: pl.document.Document, identification_graph_image_file: str,
                                        error_graph_image_file: str,
-                                       homogenized_law_parameters_file: str, young_modulus_file: str,
-                                       shear_modulus_file: str):
+                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str):
 
     bulk_young_modulus = 197.7
-    young_modulus = np.loadtxt(young_modulus_file)*bulk_young_modulus/1000.0
-    shear_modulus = np.loadtxt(shear_modulus_file)*bulk_young_modulus/1000.0
+    young_modulus, poisson_ratio, shear_modulus = sim.L_cubic_props(np.loadtxt(stiffness_tensor_file))
+    young_modulus = young_modulus[0]*bulk_young_modulus/1000.0
+    shear_modulus = shear_modulus[0]*bulk_young_modulus/1000.0
     homogenized_law_params = np.loadtxt(homogenized_law_parameters_file)
 
     with doc.create(pl.Subsection("Homogenized behavior law identification", numbering=False)):
@@ -179,7 +180,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
                 law_param_table.add_row(("Parameter", "Value"))
                 law_param_table.add_hline()
                 law_param_table.add_row(("E (GPa)", np.round(young_modulus, 2)))
-                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), 0.3))
+                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio, 3)))
                 law_param_table.add_row(("G (GPa)", np.round(shear_modulus,2)))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\alpha"), inline=True), 1e-6))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\sigma_Y (MPa)"), inline=True), np.round(homogenized_law_params[0], 2)))
@@ -199,12 +200,12 @@ def generate_identification_subsection(doc: pl.document.Document, identification
 
 def generate_chg_identification_subsection(doc: pl.document.Document, identification_graph_image_file: str,
                                            error_graph_image_file: str,
-                                       homogenized_law_parameters_file: str, young_modulus_file: str,
-                                       shear_modulus_file: str):
+                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str):
 
     bulk_young_modulus = 197.7
-    young_modulus = np.loadtxt(young_modulus_file)*bulk_young_modulus/1000.0
-    shear_modulus = np.loadtxt(shear_modulus_file)*bulk_young_modulus/1000.0
+    young_modulus, poisson_ratio, shear_modulus = sim.L_cubic_props(np.loadtxt(stiffness_tensor_file))
+    young_modulus = young_modulus[0]*bulk_young_modulus/1000.0
+    shear_modulus = shear_modulus[0]*bulk_young_modulus/1000.0
     homogenized_law_params = np.loadtxt(homogenized_law_parameters_file)
 
     with doc.create(pl.Subsection("Homogenized behavior law identification", numbering=False)):
@@ -226,7 +227,7 @@ def generate_chg_identification_subsection(doc: pl.document.Document, identifica
                 law_param_table.add_row(("Parameter", "Value"))
                 law_param_table.add_hline()
                 law_param_table.add_row(("E (GPa)", np.round(young_modulus, 2)))
-                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), 0.3))
+                law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\nu"), inline=True), np.round(poisson_ratio, 3)))
                 law_param_table.add_row(("G (GPa)", np.round(shear_modulus,2)))
                 law_param_table.add_row((pl.Math(data=pl.NoEscape(r"\alpha"), inline=True), 1e-6))
                 law_param_table.add_row(

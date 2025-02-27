@@ -10,7 +10,7 @@ authors = [
 description = "Architectured materials homogenization"
 readme = "README.md"
 requires-python = ">=3.9"
-keywords = ["microstructure", "lattice", "FEM"]
+keywords = ["microstructure", "lattice", "FEM", "homogenization"]
 classifiers = [
     'Intended Audience :: Science/Research',
     'Topic :: Scientific/Engineering :: Information Analysis',
@@ -19,6 +19,7 @@ classifiers = [
     'Operating System :: MacOS',
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
     ]
 dependencies = [
     "numpy",
@@ -30,7 +31,9 @@ dependencies = [
     "meshio",
     "pytest",
     "pytest-cov",
-    'panda',
+    "pandas",
+    "scikit-learn",
+    "pylatex",
     ]
 dynamic = ["version"]
 
@@ -55,7 +58,7 @@ all = [
     'meshio',
     'scipy',
     'simcoon',
-    'panda',
+    'pandas',
     'microgen@git+https://github.com/3MAH/microgen',
     'fedoo@git+https://github.com/3MAH/fedoo',
     ]
