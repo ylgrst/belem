@@ -26,5 +26,5 @@ git clone https://github.com/ylgrst/belem.git
 cd belem
 pip install .
 ```
-[!NOTE] 
-Parts (if not all) of this repo will be integrated to 3MAH softwares in the future
+>[!NOTE] 
+>Parts (if not all) of this repo will be integrated to 3MAH softwares in the future
