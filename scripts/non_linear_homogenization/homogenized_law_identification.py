@@ -1,7 +1,7 @@
 import numpy as np
 from simcoon import simmit as sim
 from simcoon.parameter import Parameter
-from simcoon.data import Data
+from belem.fem.data import Data
 from belem.fem.identification import *
 from belem.utils import ResultsColumnHeader, InputColumnHeader
 import os
