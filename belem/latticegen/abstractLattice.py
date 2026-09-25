@@ -8,8 +8,8 @@ from microgen import (
     Phase,
     Cylinder,
     Box,
-    fuseShapes,
-    periodic,
+    fuse_shapes,
+    periodic_split_and_translate,
 )
 
 
@@ -53,15 +53,15 @@ class AbstractLattice(ABC):
     def strut_height(self) -> float: ...
 
     @abstractmethod
-    def _compute_vertices(self) -> npt.NDArray[np.float_]: ...
+    def _compute_vertices(self) -> npt.NDArray[np.float64]: ...
 
     @abstractmethod
-    def _compute_strut_centers(self) -> npt.NDArray[np.float_]: ...
+    def _compute_strut_centers(self) -> npt.NDArray[np.float64]: ...
 
     @abstractmethod
-    def _compute_strut_directions(self) -> npt.NDArray[np.float_]: ...
+    def _compute_strut_directions(self) -> npt.NDArray[np.float64]: ...
 
-    def _compute_euler_angles(self) -> npt.NDArray[np.float_]:
+    def _compute_euler_angles(self) -> npt.NDArray[np.float64]:
         """Computes euler angles from default (1.0, 0.0, 0.0) oriented cylinder for all struts in the lattice"""
 
         default_dir = np.array([1.0, 0.0, 0.0])
@@ -96,12 +96,12 @@ class AbstractLattice(ABC):
             list_phases.append(Phase(elem.generate()))
 
         for phase_strut in list_phases:
-            periodic_phase = periodic(phase=phase_strut, rve=self.rve)
+            periodic_phase = periodic_split_and_translate(phase=phase_strut, rve=self.rve)
             list_periodic_phases.append(periodic_phase)
 
-        lattice = fuseShapes([phase.shape for phase in list_periodic_phases], retain_edges=False)
+        lattice = fuse_shapes([phase.shape for phase in list_periodic_phases], retain_edges=False)
 
-        bounding_box = Box(center=self.center, dim_x=self.cell_size, dim_y=self.cell_size, dim_z=self.cell_size).generate()
+        bounding_box = Box(center=self.center, dim=(self.cell_size, self.cell_size, self.cell_size)).generate()
 
         cut_lattice = bounding_box.intersect(lattice)
 

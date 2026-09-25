@@ -22,7 +22,7 @@ class OctetTruss(AbstractLattice):
     def strut_height(self) -> float:
         return self.cell_size * m.sqrt(2.0) / 2.0
 
-    def _compute_vertices(self) -> npt.NDArray[np.float_]:
+    def _compute_vertices(self) -> npt.NDArray[np.float64]:
         vertices_array = self.center + self.cell_size * np.array([
             [0.5, 0.5, 0.5],
             [0.5, -0.5, 0.5],
@@ -42,7 +42,7 @@ class OctetTruss(AbstractLattice):
 
         return vertices_array
 
-    def _compute_strut_centers(self) -> npt.NDArray[np.float_]:
+    def _compute_strut_centers(self) -> npt.NDArray[np.float64]:
         centers_array = np.array([
             (self.vertices[11] + self.vertices[2]),
             (self.vertices[11] + self.vertices[3]),
@@ -84,7 +84,7 @@ class OctetTruss(AbstractLattice):
 
         return centers_array
 
-    def _compute_strut_directions(self) -> npt.NDArray[np.float_]:
+    def _compute_strut_directions(self) -> npt.NDArray[np.float64]:
         directions_array = np.array([
             (self.vertices[11] - self.vertices[2]) / np.linalg.norm((self.vertices[11] - self.vertices[2])),
             (self.vertices[11] - self.vertices[3]) / np.linalg.norm((self.vertices[11] - self.vertices[3])),
