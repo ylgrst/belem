@@ -7,7 +7,7 @@ different set of metrics). This reimplementation keeps the original file based
 behaviour so that the ``data/files_exp.inp``, ``data/files_weights.inp`` and
 ``data/files_num.inp`` input files keep driving the cost exactly as before.
 """
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -113,7 +113,10 @@ def _read_data_exp(nfiles: int, data_dir: str) -> List[_OptiData]:
     return datas
 
 
-def _read_data_weights(nfiles: int, data_dir: str, data_exp: List[_OptiData]):
+def _read_data_weights(
+    nfiles: int, data_dir: str, data_exp: List[_OptiData]
+) -> Tuple[npt.NDArray[np.int_], npt.NDArray[np.float64],
+           List[npt.NDArray[np.float64]], List[_OptiData]]:
     stream = _TokenStream(data_dir.rstrip("/") + "/files_weights.inp")
 
     weight_types = np.zeros(3, dtype=int)

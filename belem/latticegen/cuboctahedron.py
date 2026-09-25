@@ -8,11 +8,6 @@ class Cuboctahedron(AbstractLattice):
     Class to create a unit cuboctahedron lattice of given cell size and density or strut radius
     """
 
-    def __init__(self,
-                 *args, **kwargs
-                 ) -> None:
-
-        super().__init__(*args, **kwargs)
 
     @property
     def n_struts(self) -> int:

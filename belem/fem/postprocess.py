@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from simcoon import simmit as sim
 from scipy.optimize import minimize, differential_evolution, Bounds
 import pyvista as pv
-from typing import Optional, Union, List, Tuple, NamedTuple
+from typing import Callable, List, NamedTuple, Optional, Sequence, Tuple, Union
 from tqdm import tqdm
 
 from belem.fem.fea import MEAN_STRAIN_VECTOR
@@ -134,7 +134,7 @@ def compute_all_arrays_from_data_fields(dataset: fd.MultiFrameDataSet, component
     output_dict["principal_stresses"] = principal_stresses_array
     return output_dict
 
-def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]], plasticity_threshold: float) -> Tuple[List[float], List[float]]:
     stress_at_plastic_strain_threshold_tension = _get_stress_tensor_at_plasticity_threshold(all_results_dict["tension"]["principal_stresses"], all_results_dict["tension"]["vm_plastic_strain"], plasticity_threshold)
     stress_at_plastic_strain_threshold_compression = _get_stress_tensor_at_plasticity_threshold(
         all_results_dict["compression"]["principal_stresses"], all_results_dict["compression"]["vm_plastic_strain"], plasticity_threshold)
@@ -158,7 +158,7 @@ def compute_yield_surface_data_from_all_results(all_results_dict: dict[str, dict
 
     return plot_data_s11, plot_data_s22
 
-def compute_yield_shear_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]], plasticity_threshold: float) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+def compute_yield_shear_surface_data_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]], plasticity_threshold: float) -> Tuple[List[float], List[float]]:
     stress_at_plastic_strain_threshold_tension = _get_stress_tensor_at_plasticity_threshold(
         all_results_dict["tension"]["stress_component"], all_results_dict["tension"]["vm_plastic_strain"],
         plasticity_threshold)
@@ -169,8 +169,10 @@ def compute_yield_shear_surface_data_from_all_results(all_results_dict: dict[str
         all_results_dict["shear"]["stress_component"], all_results_dict["shear"]["vm_plastic_strain"],
         plasticity_threshold)
 
-    plot_data_s11 = [stress_at_plastic_strain_threshold_tension, 0.0, stress_at_plastic_strain_threshold_compression, 0.0]
-    plot_data_s12 = [0.0, stress_at_plastic_strain_threshold_shear, 0.0, - stress_at_plastic_strain_threshold_shear]
+    plot_data_s11 = [float(stress_at_plastic_strain_threshold_tension), 0.0,
+                     float(stress_at_plastic_strain_threshold_compression), 0.0]
+    plot_data_s12 = [0.0, float(stress_at_plastic_strain_threshold_shear), 0.0,
+                     -float(stress_at_plastic_strain_threshold_shear)]
 
     return plot_data_s11, plot_data_s12
 
@@ -273,7 +275,7 @@ def identify_plasticity_criterion_parameters(criterion: str,
     else:
         raise ValueError(f"Unknown criterion: {criterion}. Select either hill, dfa or anisotropic")
 
-    def mse_criterion_params(p):
+    def mse_criterion_params(p: npt.NDArray[np.float64]) -> float:
         mse = 0.0
         for load_case in stress_tensor_dict.keys():
             stress_tensor_at_plasticity_threshold = _get_stress_tensor_at_plasticity_threshold(
@@ -310,7 +312,9 @@ def plot_criteria_yield_surface(criterion: str, all_results_dict: dict[str, dict
 
     result = np.zeros(inc)
 
-    def identify_yield_surface(stress_function):
+    def identify_yield_surface(
+        stress_function: Callable[[npt.NDArray[np.float64], Sequence[float]], float]
+    ) -> None:
         for i in range(0, inc):
             sigma[0] = sigma_11[i]
             sigma[1] = sigma_22[i]
@@ -385,7 +389,9 @@ def plot_criteria_shear_yield_surface(criterion: str, all_results_dict: dict[str
 
     result = np.zeros(inc)
 
-    def identify_yield_surface(stress_function):
+    def identify_yield_surface(
+        stress_function: Callable[[npt.NDArray[np.float64], Sequence[float]], float]
+    ) -> None:
         for i in range(0, inc):
             sigma[0] = sigma_11[i]
             sigma[3] = sigma_12[i]
@@ -557,7 +563,7 @@ def compute_average_stress_tensor(dataset: fd.MultiFrameDataSet) -> npt.NDArray[
 
 
 def plot_stress_strain(stress_array: npt.NDArray[np.float64], strain_array: npt.NDArray[np.float64],
-                       figname: str = "stress_strain.png"):
+                       figname: str = "stress_strain.png") -> None:
     plt.figure()
     plt.plot(strain_array, stress_array, 'o-')
     plt.title("Stress vs strain")
@@ -621,7 +627,7 @@ def plot_all_vm_stress_vm_strain_from_all_results(all_results_dict: dict[str, di
 
 
 def plot_hardening(stress_array: npt.NDArray[np.float64], plasticity_array: npt.NDArray[np.float64],
-                   figname: str = "hardening.png"):
+                   figname: str = "hardening.png") -> None:
     plt.figure()
     plt.plot(plasticity_array, stress_array, 'o-')
     plt.title("Stress vs plastic strain")
@@ -680,7 +686,7 @@ def plot_all_vm_hardening_from_all_results(all_results_dict: dict[str, dict[str,
     plt.close()
 
 
-def compute_all_sim_rp02_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]]) -> dict[str, float]:
+def compute_all_sim_rp02_from_all_results(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]]) -> dict[str, npt.NDArray[np.float64]]:
     plasticity_threshold = 0.2
     stress_at_plastic_strain_threshold_tension = _get_stress_tensor_at_plasticity_threshold(
         all_results_dict["tension"]["vm_stress"], all_results_dict["tension"]["vm_plastic_strain"],
@@ -706,7 +712,7 @@ def compute_all_sim_rp02_from_all_results(all_results_dict: dict[str, dict[str, 
             "tencomp": stress_at_plastic_strain_threshold_tencomp, "shear": stress_at_plastic_strain_threshold_shear}
 
 
-def analyse_last_frame(dataset: fd.MultiFrameDataSet) -> Tuple[float]:
+def analyse_last_frame(dataset: fd.MultiFrameDataSet) -> Tuple[float, float, float]:
     """Computes max local plastic strain, ratio between max local and global plastic strains, and max local stress at 5% strain"""
     dataset.load(-1)
     mesh_volume = dataset.mesh.to_pyvista().volume
@@ -743,7 +749,7 @@ def plot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_plastic
     mesh.point_data['vm_plastic_strain'] = node_data_vm_Ep
     clipped = mesh.clip_scalar(scalars='vm_plastic_strain', invert=False, value=local_plasticity_threshold / 100.0)
     pl.add_mesh(clipped, cmap="YlOrRd")
-    pl.add_axes()
+    pl.add_axes()  # type: ignore[call-arg]  # pyvista decorator stub artifact
     pl.screenshot(figname)
 
 def multiplot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_clip_values: Union[List[int], List[float]],
@@ -773,7 +779,7 @@ def multiplot_clipped_vm_plastic_strain(dataset: fd.MultiFrameDataSet, global_cl
         mesh.point_data['vm_plastic_strain'] = node_data_vm_Ep
         clipped = mesh.clip_scalar(scalars='vm_plastic_strain', invert=False, value=local_plasticity_threshold / 100.0)
         pl.add_mesh(clipped, cmap="YlOrRd")
-        pl.add_axes()
+        pl.add_axes()  # type: ignore[call-arg]  # pyvista decorator stub artifact
         pl.screenshot(figname + "_threshold_" + str(global_clip_value) + ".png")
 
 def _get_mean_strain(dataset: fd.MultiFrameDataSet, strain_from_dataset: StrainFromDataset) -> float:
@@ -796,13 +802,16 @@ def _ref_node_to_mean_strain_index(ref_node_id: int, ref_node_variable: str) -> 
         ) from None
 
 
-def _build_yield_data_projected_to_all_directions(all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]]) -> list[dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]]]:
+def _build_yield_data_projected_to_all_directions(
+    all_results_dict: dict[str, dict[str, npt.NDArray[np.float64]]]
+) -> Tuple[dict[str, Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+           dict[str, npt.NDArray[np.float64]], dict[str, npt.NDArray[np.float64]]]:
     """USE ONLY ON STRUCTURES WITH AT LEAST CUBIC SYMMETRY"""
-    yield_data = {}
-    yield_data_stress = {}
-    yield_data_pstrain = {}
+    yield_data: dict[str, Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]] = {}
+    yield_data_stress: dict[str, npt.NDArray[np.float64]] = {}
+    yield_data_pstrain: dict[str, npt.NDArray[np.float64]] = {}
 
-    def swap_indices(array: npt.NDArray[np.float64], idx1: int, idx2: int):
+    def swap_indices(array: npt.NDArray[np.float64], idx1: int, idx2: int) -> npt.NDArray[np.float64]:
         swapped_array = np.copy(array)
         for i in range(len(array)):
             swapped_array[i, idx1], swapped_array[i, idx2] = swapped_array[i, idx2], swapped_array[i, idx1]
@@ -903,7 +912,7 @@ def _predict_vm_equivalent_stress(all_results_dict: dict[str, dict[str, npt.NDAr
                                   plasticity_threshold: float = 0.2) -> float:
     _, stress_tensor_dict, plasticity_array_dict = _build_yield_data_projected_to_all_directions(all_results_dict)
     ref_vm_stress = sim.Mises_stress(_get_stress_tensor_at_plasticity_threshold(stress_tensor_dict["tension_11"], plasticity_array_dict["tension_11"], plasticity_threshold))
-    def mse_vm_stress(sigma_eq):
+    def mse_vm_stress(sigma_eq: float) -> float:
         mse = 0.0
         for load_case in stress_tensor_dict.keys():
             stress_tensor_at_plasticity_threshold = _get_stress_tensor_at_plasticity_threshold(stress_tensor_dict[load_case], plasticity_array_dict[load_case], plasticity_threshold)

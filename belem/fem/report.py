@@ -2,7 +2,7 @@ import pylatex as pl
 import numpy as np
 from simcoon import simmit as sim
 
-def import_extra_packages(doc: pl.document.Document):
+def import_extra_packages(doc: pl.document.Document) -> None:
     doc.packages.append(pl.Package('float'))
     doc.packages.append(pl.Package('titlepic'))
     doc.packages.append(pl.Package('babel', options="english"))
@@ -12,12 +12,12 @@ def import_extra_packages(doc: pl.document.Document):
     doc.preamble.append(pl.NoEscape(r"\renewcommand{\thefigure}{\hspace{-.333333em}}"))
     doc.preamble.append(pl.NoEscape(r"\renewcommand{\thetable}{\hspace{-.333333em}}"))
 
-def center_all_floats(doc: pl.document.Document):
+def center_all_floats(doc: pl.document.Document) -> None:
     doc.preamble.append(pl.NoEscape(r"\makeatletter"))
     doc.preamble.append(pl.NoEscape(r"\g@addto@macro\@floatboxreset\centering"))
     doc.preamble.append(pl.NoEscape(r"\makeatother"))
 
-def generate_title_page(doc: pl.document.Document, start_page_number: int):
+def generate_title_page(doc: pl.document.Document, start_page_number: int) -> None:
     doc.preamble.append(pl.Command("title", pl.LargeText("Results")))
     doc.preamble.append(pl.Command("date", ""))
     doc.append(pl.NoEscape(r"\maketitle"))
@@ -25,7 +25,7 @@ def generate_title_page(doc: pl.document.Document, start_page_number: int):
     doc.append(pl.NewPage())
     doc.append(pl.NoEscape(r"\setcounter{page}{%d}" %start_page_number))
 
-def generate_header(doc: pl.document.Document):
+def generate_header(doc: pl.document.Document) -> None:
 
     doc.preamble.append(pl.NoEscape(r"\renewcommand{\sectionmark}[1]{\markboth{#1}{}}"))
     header = pl.PageStyle("fancy")
@@ -43,7 +43,7 @@ def generate_header(doc: pl.document.Document):
     doc.preamble.append(header)
     doc.change_document_style("fancy")
 
-def generate_chapter_page(doc: pl.document.Document, shape: str, shape_image: str):
+def generate_chapter_page(doc: pl.document.Document, shape: str, shape_image: str) -> None:
     with doc.create(pl.Chapter(shape, numbering=False)):
 
         with doc.create(pl.Figure(position="H")) as intro_pic:
@@ -54,7 +54,7 @@ def generate_chapter_page(doc: pl.document.Document, shape: str, shape_image: st
 def generate_section(doc: pl.document.Document, basedir: str, shape: str, density: float,response_curve_file_name: str,
                      hardening_curve_file_name: str, dfa_yield_image_file: str, dfa_shear_yield_image_file: str,
                      dfa_params_file: str, identification_graph_image_file: str, error_graph_image_file: str,
-                     homogenized_law_parameters_file: str, stiffness_tensor_file: str):
+                     homogenized_law_parameters_file: str, stiffness_tensor_file: str) -> None:
     with doc.create(pl.Section(shape + " " + str(int(100*density)) + "%", numbering=False)):
         #generate_response_curves_subsection(doc, response_curve_file_name)
         #generate_hardening_curves_subsection(doc, hardening_curve_file_name)
@@ -65,19 +65,19 @@ def generate_section(doc: pl.document.Document, basedir: str, shape: str, densit
                                            homogenized_law_parameters_file, stiffness_tensor_file)
     doc.append(pl.NewPage())
 
-def generate_response_curves_subsection(doc: pl.document.Document, response_curve_file_name: str = "all_vm_stress_vm_strain.png"):
+def generate_response_curves_subsection(doc: pl.document.Document, response_curve_file_name: str = "all_vm_stress_vm_strain.png") -> None:
     with doc.create(pl.Subsection("Simulated response curves", numbering=False)):
         with doc.create(pl.Figure(position="H")) as resp_fig:
             resp_fig.add_image(pl.NoEscape(response_curve_file_name), width=pl.NoEscape(r"0.8\textwidth"))
             resp_fig.add_caption("Mises stress vs mises strain for different load cases")
 
-def generate_hardening_curves_subsection(doc: pl.document.Document, hardening_curve_file_name: str = "all_vm_hardening.png"):
+def generate_hardening_curves_subsection(doc: pl.document.Document, hardening_curve_file_name: str = "all_vm_hardening.png") -> None:
     with doc.create(pl.Subsection("Simulated hardening curves", numbering=False)):
         with doc.create(pl.Figure(position="H")) as hard_fig:
             hard_fig.add_image(pl.NoEscape(hardening_curve_file_name), width=pl.NoEscape(r"0.8\textwidth"))
             hard_fig.add_caption("Mises stress vs plastic mises strain for different load cases")
 
-def generate_fea_subsection(doc: pl.document.Document, response_curve_file_name: str, hardening_curve_file_name: str, shape_basedir: str):
+def generate_fea_subsection(doc: pl.document.Document, response_curve_file_name: str, hardening_curve_file_name: str, shape_basedir: str) -> None:
     fea_data = {}
     sim_list = ["tension", "biaxial_tension", "compression", "biaxial_compression", "tencomp", "shear"]
     for sim in sim_list:
@@ -123,10 +123,10 @@ def generate_fea_subsection(doc: pl.document.Document, response_curve_file_name:
             fea_tab.add_caption("Local max stress and plastic strain data for different load cases")
 
 
-def generate_stress_concentration_map_subsection(doc: pl.document.Document):
+def generate_stress_concentration_map_subsection(doc: pl.document.Document) -> None:
     ...
 
-def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str = "dfa_yield.png", dfa_shear_yield_image_file: str = "dfa_yield_shear.png", dfa_params_file: str = "dfa_params.txt"):
+def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str = "dfa_yield.png", dfa_shear_yield_image_file: str = "dfa_yield_shear.png", dfa_params_file: str = "dfa_params.txt") -> None:
 
     dfa_params = np.loadtxt(dfa_params_file)
 
@@ -155,7 +155,7 @@ def generate_dfa_subsection(doc: pl.document.Document, dfa_yield_image_file: str
 
 def generate_identification_subsection(doc: pl.document.Document, identification_graph_image_file: str,
                                        error_graph_image_file: str,
-                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str):
+                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str) -> None:
 
     bulk_young_modulus = 197.7
     young_modulus, poisson_ratio, shear_modulus = sim.L_cubic_props(np.loadtxt(stiffness_tensor_file))
@@ -200,7 +200,7 @@ def generate_identification_subsection(doc: pl.document.Document, identification
 
 def generate_chg_identification_subsection(doc: pl.document.Document, identification_graph_image_file: str,
                                            error_graph_image_file: str,
-                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str):
+                                       homogenized_law_parameters_file: str, stiffness_tensor_file: str) -> None:
 
     bulk_young_modulus = 197.7
     young_modulus, poisson_ratio, shear_modulus = sim.L_cubic_props(np.loadtxt(stiffness_tensor_file))

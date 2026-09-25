@@ -4,7 +4,7 @@ from fedoo.core.boundary_conditions import ListBC, BoundaryCondition
 import numpy as np
 import numpy.typing as npt
 import pyvista as pv
-from typing import List, Optional, NamedTuple
+from typing import List, NamedTuple, Optional, Sequence, Union
 
 # Fedoo >= 1.0 replaces the pair of virtual "constraint driver" nodes by named
 # global dofs holding the macroscopic strain. The legacy (node id, variable)
@@ -26,12 +26,13 @@ _CONSTRAINT_DRIVER_TO_MEAN_STRAIN = {
 class Load(NamedTuple):
     """Class to manage load cases for fea computation
     :param boundary_condition_type: type of boundary condition (Dirichlet or Neumann)
-    :param constraint_drivers_nodes_ids: list of constraint drivers nodes ids
+    :param constraint_drivers_node_id: constraint driver node id, 0 or 1, given either
+    as an int or as a one element sequence
     :param constraint_drivers_variables: list of constraint drivers variables to which apply values
     :param constraint_drivers_values: list of values to be applied to constraint drivers
     """
     boundary_condition_type: str
-    constraint_drivers_node_id: int
+    constraint_drivers_node_id: Union[int, Sequence[int]]
     constraint_drivers_variables: List[str]
     constraint_drivers_values: List[float]
 
@@ -120,10 +121,14 @@ def _reset_memory() -> None:
 
 
 def _create_load_case(load: Load) -> ListBC:
-    node_id = load.constraint_drivers_node_id
-    if not np.isscalar(node_id):
-        (node_id,) = np.asarray(node_id).reshape(-1)
-    mean_strain_variables = [_mean_strain_variable(int(node_id), variable)
+    # the node id is historically given as a one element list, e.g. [0]
+    node_ids = np.asarray(load.constraint_drivers_node_id, dtype=int).reshape(-1)
+    if node_ids.size != 1:
+        raise ValueError(
+            f"A load drives a single constraint driver node, got {node_ids.size} ids."
+        )
+    node_id = int(node_ids[0])
+    mean_strain_variables = [_mean_strain_variable(node_id, variable)
                              for variable in load.constraint_drivers_variables]
 
     # Global dofs carry a single dof each, addressed with the dof index 0.
