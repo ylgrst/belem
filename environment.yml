@@ -3,15 +3,19 @@ channels:
   - set3mah
 
 dependencies:
-  - pyvista
+  # fedoo and simcoon require python >=3.10, microgen caps it below 3.13
+  - python>=3.10,<3.13
+  # fedoo 1.0 and simcoon 2.0 require numpy 2
+  - numpy>=2
+  - pyvista>=0.44.2,<0.45
   - python-gmsh
   - meshio
   - pytest-cov
   - pytest
   - scipy
   - matplotlib
-  - occt=7.7.0
-  - cadquery=2.3.1
-  - microgen
-  - fedoo
-  - simcoon
+  # microgen 1.3 requires cadquery 2.5, which brings its own occt build
+  - cadquery>=2.5.0,<2.6
+  - microgen>=1.3.2,<2
+  - fedoo>=1.0.0,<2
+  - simcoon>=2.0.1,<3

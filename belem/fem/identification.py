@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from belem.utils import ResultsColumnHeader, InputColumnHeader
 from simcoon import simmit as sim
 from simcoon.parameter import Parameter
-from simcoon.data import Data, write_input_and_tab_files, write_files_exp
+from belem.fem.cost import calc_cost
+from belem.fem.data import Data, write_input_and_tab_files, write_files_exp
 from typing import List, Union, Optional
 from pathlib import Path
 from scipy.optimize import differential_evolution, Bounds
@@ -15,7 +16,6 @@ from sklearn.metrics import mean_squared_error, r2_score, root_mean_squared_erro
 import importlib.resources
 from functools import partial
 
-np.float_ = np.float64
 
 N_COLUMNS_IN_RESULTS_FILE = 24
 
@@ -30,8 +30,8 @@ DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(__package__).parent 
 
 def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ResultsColumnHeader]],
                                  parameters_to_optimize: List[Parameter],
-                                 elastic_params: npt.NDArray[np.float_], n_iso_hard: int, n_kin_hard: int, criteria: str,
-                                 criteria_params: npt.NDArray[np.float_], basedir: str) -> None:
+                                 elastic_params: npt.NDArray[np.float64], n_iso_hard: int, n_kin_hard: int, criteria: str,
+                                 criteria_params: npt.NDArray[np.float64], basedir: str) -> None:
 
     if len(data_to_identify) != len(list_columns_to_compare):
         raise IndexError(
@@ -55,13 +55,13 @@ def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_c
         _write_path_id_file(f"path_id_{i:02}.txt", sim_type, data_dir)
         i += 1
 
-def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
+def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float64],
                              n_iso_hard: int, n_kin_hard: int, criteria: str,
-                             criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                             criteria_params: npt.NDArray[np.float64], path_dir: str = "data/", num_dir: str = "num_data/",
                              results_dir: str = "results_id/", args=(), strategy='best1bin', maxiter=1000, popsize=15,
                              tol=0.01, mutation=(0.5, 1), recombination=0.7, rng=None, callback=None, disp=False,
                              polish=True, init='latinhypercube', atol=0, updating='immediate', workers=1,
-                             constraints=(), x0=None, integrality=None, vectorized=False) -> npt.NDArray[np.float_]:
+                             constraints=(), x0=None, integrality=None, vectorized=False) -> npt.NDArray[np.float64]:
 
     loss = partial(_compute_epchg_loss, elastic_params=elastic_params, n_iso_hard=n_iso_hard, n_kin_hard=n_kin_hard,
                    criteria=criteria, criteria_params=criteria_params, path_dir=path_dir, num_dir=num_dir,
@@ -152,9 +152,9 @@ def plot_nrmse(sim_list: List[str], ident_data_columns_to_plot: List[List[Result
     plt.savefig(path_results_id + graph_filename, bbox_inches='tight', format='png')
     plt.close()
 
-def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float_],
+def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float64],
                         n_iso_hard: int, n_kin_hard: int, criteria: str,
-                        criteria_params: npt.NDArray[np.float_], path_dir: str = "data/", num_dir: str = "num_data/",
+                        criteria_params: npt.NDArray[np.float64], path_dir: str = "data/", num_dir: str = "num_data/",
                         results_dir: str = "results_id/") -> float:
 
     list_path_file = glob.glob("path_id_*.txt", root_dir=path_dir)
@@ -193,7 +193,7 @@ def _compute_epchg_loss(parameters_to_optimize: List[Parameter], elastic_params:
                    output_file)
         shutil.copy(results_dir + copied_output_file, num_dir)
 
-    c = sim.calc_cost(len(list_output_file), list_output_file)
+    c = calc_cost(list_output_file)
 
     return c
 
@@ -221,7 +221,7 @@ def _write_parameter_input_file(list_parameters: List[Parameter], path: str = "d
             file.write(' '.join(str(val) for val in parameter.sim_input_files))
             file.write("\n")
 
-def _write_dfa_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_params: npt.NDArray[np.float_],
+def _write_dfa_material_input_file(dfa_params: npt.NDArray[np.float64], elastic_params: npt.NDArray[np.float64],
                                    list_parameters: List[Parameter], path: str = "keys/") -> None:
     with open(path + "material.dat", "w+") as file:
         file.write("Material\nName\tEPDFA\nNumber_of_material_parameters\t17\nNumber_of_internal_variables\t33\n\n#Orientation\npsi\t0\ntheta\t0\nphi\t0\n\n#Mechanical\n")
@@ -244,7 +244,7 @@ def _write_dfa_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_p
         file.write("N_dfa\t" + str(dfa_params[5]) + "\n")
         file.write("K_dfa\t" + str(dfa_params[6]) + "\n")
 
-def _write_dfa_epchg_material_input_file(dfa_params: npt.NDArray[np.float_], elastic_params: npt.NDArray[np.float_],
+def _write_dfa_epchg_material_input_file(dfa_params: npt.NDArray[np.float64], elastic_params: npt.NDArray[np.float64],
                                          n_iso_hard: int, n_kin_hard: int,
                                          list_parameters: List[Parameter], path: str = "keys/") -> None:
     with open(path + "material.dat", "w+") as file:
@@ -274,8 +274,8 @@ def _write_dfa_epchg_material_input_file(dfa_params: npt.NDArray[np.float_], ela
         file.write("N_dfa\t" + str(dfa_params[5]) + "\n")
         file.write("K_dfa\t" + str(dfa_params[6]) + "\n")
 
-def _write_epchg_material_input_file(elastic_params: npt.NDArray[np.float_], criteria: str,
-                                     criteria_params: Optional[npt.NDArray[np.float_]],
+def _write_epchg_material_input_file(elastic_params: npt.NDArray[np.float64], criteria: str,
+                                     criteria_params: Optional[npt.NDArray[np.float64]],
                                      n_iso_hard: int, n_kin_hard: int,
                                      list_parameters: List[Parameter], path: str = "keys/") -> None:
 
