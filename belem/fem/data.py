@@ -21,7 +21,7 @@ class Data:
         control: npt.NDArray[np.float64],
         observation: npt.NDArray[np.float64],
         time: Optional[npt.NDArray[np.float64]] = None,
-        timestep: Optional[float] = 0.01,
+        timestep: float = 0.01,
     ):
         self.control = control
         self.observation = observation

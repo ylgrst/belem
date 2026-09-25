@@ -6,7 +6,7 @@ from simcoon import simmit as sim
 from simcoon.parameter import Parameter
 from belem.fem.cost import calc_cost
 from belem.fem.data import Data, write_input_and_tab_files, write_files_exp
-from typing import List, Union, Optional
+from typing import List, Optional, Sequence, Tuple, Union
 from pathlib import Path
 from scipy.optimize import differential_evolution, Bounds
 import os
@@ -19,14 +19,18 @@ from functools import partial
 
 N_COLUMNS_IN_RESULTS_FILE = 24
 
-DEFAULT_CONSTANTS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "constants.inp").as_posix()
-DEFAULT_WEIGHTS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "files_weights.inp").as_posix()
-DEFAULT_GEN_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "gen0.inp").as_posix()
-DEFAULT_IDENT_CONTROL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "ident_control.inp").as_posix()
-DEFAULT_IDENT_ESSENTIALS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "ident_essentials.inp").as_posix()
-DEFAULT_MATERIAL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "material.dat").as_posix()
-DEFAULT_SOLVER_CONTROL_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "solver_control.inp").as_posix()
-DEFAULT_SOLVER_ESSENTIALS_FILE = (importlib.resources.files(__package__).parent / "default_simcoon_files" / "solver_essentials.inp").as_posix()
+# importlib.resources.files returns a Traversable, which has no parent nor
+# as_posix; go through the package directly and wrap it in a Path
+_DEFAULT_SIMCOON_FILES = Path(str(importlib.resources.files("belem"))) / "default_simcoon_files"
+
+DEFAULT_CONSTANTS_FILE = (_DEFAULT_SIMCOON_FILES / "constants.inp").as_posix()
+DEFAULT_WEIGHTS_FILE = (_DEFAULT_SIMCOON_FILES / "files_weights.inp").as_posix()
+DEFAULT_GEN_FILE = (_DEFAULT_SIMCOON_FILES / "gen0.inp").as_posix()
+DEFAULT_IDENT_CONTROL_FILE = (_DEFAULT_SIMCOON_FILES / "ident_control.inp").as_posix()
+DEFAULT_IDENT_ESSENTIALS_FILE = (_DEFAULT_SIMCOON_FILES / "ident_essentials.inp").as_posix()
+DEFAULT_MATERIAL_FILE = (_DEFAULT_SIMCOON_FILES / "material.dat").as_posix()
+DEFAULT_SOLVER_CONTROL_FILE = (_DEFAULT_SIMCOON_FILES / "solver_control.inp").as_posix()
+DEFAULT_SOLVER_ESSENTIALS_FILE = (_DEFAULT_SIMCOON_FILES / "solver_essentials.inp").as_posix()
 
 def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_compare: List[List[ResultsColumnHeader]],
                                  parameters_to_optimize: List[Parameter],
@@ -58,10 +62,16 @@ def prepare_epchg_identification(data_to_identify: List[Data], list_columns_to_c
 def run_epchg_identification(parameters_to_optimize: List[Parameter], elastic_params: npt.NDArray[np.float64],
                              n_iso_hard: int, n_kin_hard: int, criteria: str,
                              criteria_params: npt.NDArray[np.float64], path_dir: str = "data/", num_dir: str = "num_data/",
-                             results_dir: str = "results_id/", args=(), strategy='best1bin', maxiter=1000, popsize=15,
-                             tol=0.01, mutation=(0.5, 1), recombination=0.7, rng=None, callback=None, disp=False,
-                             polish=True, init='latinhypercube', atol=0, updating='immediate', workers=1,
-                             constraints=(), x0=None, integrality=None, vectorized=False) -> npt.NDArray[np.float64]:
+                             results_dir: str = "results_id/", args: Tuple[object, ...] = (),
+                             strategy: str = 'best1bin', maxiter: int = 1000, popsize: int = 15,
+                             tol: float = 0.01, mutation: Union[float, Tuple[float, float]] = (0.5, 1),
+                             recombination: float = 0.7, rng: Optional[object] = None,
+                             callback: Optional[object] = None, disp: bool = False,
+                             polish: bool = True, init: Union[str, npt.NDArray[np.float64]] = 'latinhypercube',
+                             atol: float = 0, updating: str = 'immediate', workers: int = 1,
+                             constraints: object = (), x0: Optional[npt.NDArray[np.float64]] = None,
+                             integrality: Optional[npt.NDArray[np.bool_]] = None,
+                             vectorized: bool = False) -> npt.NDArray[np.float64]:
 
     loss = partial(_compute_epchg_loss, elastic_params=elastic_params, n_iso_hard=n_iso_hard, n_kin_hard=n_kin_hard,
                    criteria=criteria, criteria_params=criteria_params, path_dir=path_dir, num_dir=num_dir,
@@ -286,17 +296,17 @@ def _write_epchg_material_input_file(elastic_params: npt.NDArray[np.float64], cr
             criteria_id = 0
             criteria_param_names = []
         case "hill":
-            if not len(criteria_params) == 6:
+            if criteria_params is None or not len(criteria_params) == 6:
                 raise ValueError("criteria_params must contain 6 parameters for Hill criterion")
             criteria_id = 1
             criteria_param_names = ["F_hill", "G_hill", "H_hill", "L_hill", "M_hill", "N_hill"]
         case "dfa":
-            if not len(criteria_params) == 7:
+            if criteria_params is None or not len(criteria_params) == 7:
                 raise ValueError("criteria_params must contain 7 parameters for DFA criterion")
             criteria_id = 2
             criteria_param_names = ["F_dfa", "G_dfa", "H_dfa", "L_dfa", "M_dfa", "N_dfa", "K_dfa"]
         case "anisotropic":
-            if not len(criteria_params) == 9:
+            if criteria_params is None or not len(criteria_params) == 9:
                 raise ValueError("criteria_params must contain 9 parameters for anisotropic criterion")
             criteria_id = 3
             criteria_param_names = ["P11", "P22", "P33", "P12", "P13", "P23", "P44", "P55", "P66"]
@@ -325,7 +335,7 @@ def _write_epchg_material_input_file(elastic_params: npt.NDArray[np.float64], cr
             file.write("C_" + str(i+1) + "\t" + list_parameters[1+n_iso_hard*2+i*2].key + "\n")
             file.write("D_" + str(i+1) + "\t" + list_parameters[1+n_iso_hard*2+i*2+1].key + "\n")
         file.write("\n")
-        if len(criteria_param_names) != 0:
+        if len(criteria_param_names) != 0 and criteria_params is not None:
             for i in range(len(criteria_param_names)):
                 file.write(criteria_param_names[i] + "\t" + str(criteria_params[i]) + "\n")
 
@@ -375,7 +385,9 @@ def _copy_all_default_files(path: str = "data/") -> None:
     shutil.copy(DEFAULT_MATERIAL_FILE, path)
 
 
-def _add_zero_to_equalize_array_length(array_x, array_y):
+def _add_zero_to_equalize_array_length(
+    array_x: npt.NDArray[np.float64], array_y: npt.NDArray[np.float64]
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     x = np.copy(array_x)
     y = np.copy(array_y)
     if len(x) > len(y):

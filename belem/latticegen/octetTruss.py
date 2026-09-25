@@ -9,10 +9,6 @@ class OctetTruss(AbstractLattice):
     Class to create a unit octet-truss lattice of given cell size and density or strut radius
     """
 
-    def __init__(self,
-                 *args, **kwargs
-                 ) -> None:
-        super().__init__(*args, **kwargs)
 
     @property
     def n_struts(self) -> int:
