@@ -17,10 +17,19 @@ whole campaign rather than a sample.
 Measured on a body centred cubic cell at 30 percent, effective Young modulus
 against the finest mesh tested:
 
+    scale 6.00    10 809 nodes    1.69 percent
+    scale 4.00    10 965 nodes    3.53 percent
+    scale 3.00    11 116 nodes    5.17 percent
     scale 2.00    13 813 nodes    4.42 percent
     scale 1.50    26 953 nodes    2.37 percent
     scale 1.25    45 339 nodes    1.23 percent
     scale 1.00    88 075 nodes    reference
+
+Scales 6, 4 and 3 all land near 11 000 nodes because the curvature of the ligament
+surfaces floors the element size, but they do not agree with each other: only the
+element distribution changes, and the modulus scatters over 7 percent between
+them. That region is noise rather than a plateau, and scale 6 sitting closest to
+the converged value is luck. Monotonic convergence sets in from about scale 2.
 
 The effective shear modulus converges far faster than the Young modulus, 0.54
 percent against 4.42 at scale 2, so the Young modulus is what binds. Note that
@@ -240,8 +249,10 @@ def main() -> None:
                         help="mesh scales to compare; smaller is finer, and the finest "
                              "one is the reference. The knob saturates above about 2: "
                              "the curvature of the ligament surfaces sets a floor on the "
-                             "element size, so scales 3, 4 and 6 all give much the same "
-                             "mesh. Almost all of the useful range lies between 1 and 2.")
+                             "element size, so scales 3, 4 and 6 all give a mesh of much "
+                             "the same size, but with arbitrarily different element "
+                             "distributions and results scattering over several percent. "
+                             "The useful range lies between 1 and 2.")
     parser.add_argument("--nonlinear-load-case", default="", metavar="NAME",
                         choices=[""] + list(cfg.LOAD_CASES),
                         help="also run this load case at each scale, for spot checks")

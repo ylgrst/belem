@@ -122,10 +122,16 @@ expensive. TPMS cells are larger still, 380 000 nodes for a gyroid sheet against
 
 Two things the table shows that are worth knowing before choosing:
 
-* **The knob saturates above about 2.** The curvature of the ligament surfaces
-  puts a floor under the element size, so scales 3, 4 and 6 all produce much the
-  same mesh, around 11 000 nodes. Almost all of the useful range is between 1
-  and 2.
+* **Above about scale 2 the knob stops working, and the results turn into
+  noise.** The curvature of the ligament surfaces puts a floor under the element
+  size, so scales 3, 4 and 6 all land near 11 000 nodes. They do not agree with
+  each other though: the effective Young modulus scatters from 5 625 to 6 018 MPa
+  across those three, a spread of 7 percent, because only the element
+  distribution changes and it changes arbitrarily. Scale 6 happens to sit closer
+  to the converged value than scale 3 does, which is luck rather than
+  convergence. Treat anything above 2 as unusable, not merely coarse. Monotonic
+  convergence only sets in from about scale 2 downward, so the useful range is
+  between 1 and 2.
 * **Scale 1 is not converged either.** The effective Young modulus is still
   drifting monotonically at belem-private's own resolution, so that resolution is
   itself roughly one to two percent away from a converged value. The effective
