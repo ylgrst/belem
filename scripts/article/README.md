@@ -29,6 +29,16 @@ Run them in order; each reads what the previous one wrote.
 | `03_postprocess_all.py` | reduced arrays, response and hardening plots, yield surface |
 | `04_identify_homogenized_law.py` | identified EPCHG parameters, fit quality plots |
 
+`05_convergence_check.py` sits beside them rather than in the chain. Checking
+convergence on every geometry, density and load case would cost more than the
+campaign it justifies, so it exploits the fact that mesh convergence here is set
+by how well the ligament cross section is resolved, which shows in the linear
+effective stiffness just as sharply as in the plastic response and costs seconds
+per run instead of minutes. The default sweep is therefore exhaustive in geometry
+and density but linear only, which is cheap enough to cover every cell rather than
+a sample. `--nonlinear-load-case` adds a load case per scale for spot checks where
+the linear result converged slowest.
+
 Steps 2, 3 and 4 refuse to start on a cell whose inputs are missing, and name what
 to run first.
 
@@ -93,24 +103,39 @@ geometry slug), `--densities 30 40`, and `--dry-run` to see the work list.
 
 Measured on one 24 core machine, for a body centred cubic cell at 30 percent:
 
-| `--mesh-scale` | nodes | mesh | one monotonic load case | one cyclic load case |
-| --- | --- | --- | --- | --- |
-| 1.0 (belem-private resolution) | 88 000 | 16 s | not measured | not measured |
-| 4.0 | 11 000 | 5 s | about 10 min | about 30 min |
+| `--mesh-scale` | nodes | mesh | effective E, deviation | one monotonic load case | one cyclic load case |
+| --- | --- | --- | --- | --- | --- |
+| 1.0 (belem-private resolution) | 88 075 | 35 s | reference | not measured | not measured |
+| 1.25 | 45 339 | 19 s | 1.23 percent | not measured | not measured |
+| 1.5 | 26 953 | 12 s | 2.37 percent | not measured | not measured |
+| 2.0 | 13 813 | 8 s | 4.42 percent | not measured | not measured |
+| 4.0 | 10 965 | 5 s | not compared | about 10 min | about 30 min |
 
 At `--mesh-scale 4` one geometry and density costs roughly 2.5 core hours for its
 ten computations, so the 380 cells come to of order 950 core hours: about two days
 on one 24 core machine, or half a day spread over four of them.
 
-At the default `--mesh-scale 1` the meshes are eight times larger and a direct
-solver scales worse than linearly, so the same campaign is one to two orders of
-magnitude more expensive. TPMS cells are larger still, 380 000 nodes for a gyroid
-sheet against 88 000 for the lattice.
+At `--mesh-scale 1` the meshes are eight times larger and a direct solver scales
+worse than linearly, so the same campaign is one to two orders of magnitude more
+expensive. TPMS cells are larger still, 380 000 nodes for a gyroid sheet against
+88 000 for the lattice.
 
-**Choose `--mesh-scale` deliberately and report it.** Run a convergence check on
-two or three representative cells before committing the campaign: the default
-reproduces belem-private's resolution, but nothing has verified that that
-resolution is needed, or that a coarser one is enough.
+Two things the table shows that are worth knowing before choosing:
+
+* **The knob saturates above about 2.** The curvature of the ligament surfaces
+  puts a floor under the element size, so scales 3, 4 and 6 all produce much the
+  same mesh, around 11 000 nodes. Almost all of the useful range is between 1
+  and 2.
+* **Scale 1 is not converged either.** The effective Young modulus is still
+  drifting monotonically at belem-private's own resolution, so that resolution is
+  itself roughly one to two percent away from a converged value. The effective
+  shear modulus converges much faster, 0.54 percent at scale 2 against 4.42 for
+  the Young modulus, so the Young modulus is what binds.
+
+For an article comparing geometries against each other, a bias of a percent or
+two that every cell shares matters far less than the resolution being the same
+everywhere. **Choose `--mesh-scale` deliberately, keep it fixed across the whole
+campaign, and report it.** `05_convergence_check.py` measures where to put it.
 
 ## Assumptions worth reviewing
 
