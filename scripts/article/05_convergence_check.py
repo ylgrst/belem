@@ -91,8 +91,21 @@ def run_one(job: cfg.Job, root: Path, mesh_scale: float, force: bool,
     target = scale_root(root, mesh_scale)
     started = time.time()
 
-    # a discarded cell keeps its done marker, so force a rebuild when the mesh
-    # the linear homogenisation needs is no longer on disk
+    # Nothing left to do when the moduli are already out and no load case is
+    # wanted. This is what makes a resumed sweep cheap: --discard-meshes removes
+    # the mesh, so without this the rerun would rebuild every mesh it had just
+    # deleted purely to skip the homogenisation that follows.
+    stiffness = job.directory(target) / "effective_stiffness_tensor.txt"
+    mesh_info_file = job.directory(target) / "mesh" / "mesh_info.json"
+    if (not force and not nonlinear_load_case
+            and stiffness.is_file() and mesh_info_file.is_file()):
+        info = json.loads(mesh_info_file.read_text())
+        return {"job": job.label, "status": "skipped", "mesh_scale": mesh_scale,
+                "n_nodes": info["n_nodes"], "achieved_density": info["achieved_density"],
+                "seconds": 0.0, "meshed": "skipped"}
+
+    # a discarded cell keeps its mesh done marker, so force a rebuild when the
+    # mesh the linear homogenisation needs is no longer on disk
     remeshed = job.directory(target) / "mesh" / "remeshed.vtk"
     needs_mesh = force or not remeshed.is_file()
     mesh_result = meshes.generate_one(job, target, needs_mesh, mesh_scale)
@@ -342,6 +355,9 @@ def _report(result: dict, done: int, total: int, failures: List[dict]) -> None:
     if result["status"] == "failed":
         failures.append(result)
         print(f"[{done}/{total}] FAILED  {result['job']} scale {result['mesh_scale']:g}",
+              flush=True)
+    elif result["status"] == "skipped":
+        print(f"[{done}/{total}] skipped {result['job']} scale {result['mesh_scale']:g}",
               flush=True)
     else:
         print(f"[{done}/{total}] {result['job']:<44s} scale {result['mesh_scale']:<4g} "
