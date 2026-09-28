@@ -133,7 +133,8 @@ def main() -> None:
             _report(_worker(payload), done, len(jobs), failures)
     else:
         context = multiprocessing.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=args.workers, mp_context=context) as pool:
+        with ProcessPoolExecutor(max_workers=args.workers, mp_context=context,
+                                 max_tasks_per_child=1) as pool:
             futures = [pool.submit(_worker, p) for p in payloads]
             for future in as_completed(futures):
                 done += 1
