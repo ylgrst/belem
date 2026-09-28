@@ -83,7 +83,7 @@ def scale_root(root: Path, mesh_scale: float) -> Path:
 
 
 def run_one(job: cfg.Job, root: Path, mesh_scale: float, force: bool,
-            nonlinear_load_case: str) -> dict:
+            nonlinear_load_case: str, discard_meshes: bool = False) -> dict:
     """Mesh one cell at one scale and homogenise it, optionally one load case too"""
     meshes = _load("01")
     fea = _load("02")
@@ -91,7 +91,11 @@ def run_one(job: cfg.Job, root: Path, mesh_scale: float, force: bool,
     target = scale_root(root, mesh_scale)
     started = time.time()
 
-    mesh_result = meshes.generate_one(job, target, force, mesh_scale)
+    # a discarded cell keeps its done marker, so force a rebuild when the mesh
+    # the linear homogenisation needs is no longer on disk
+    remeshed = job.directory(target) / "mesh" / "remeshed.vtk"
+    needs_mesh = force or not remeshed.is_file()
+    mesh_result = meshes.generate_one(job, target, needs_mesh, mesh_scale)
 
     linear_task = fea.Task(job, fea.LINEAR_TASK)
     if force or not cfg.is_done(job.directory(target), "linear"):
@@ -107,6 +111,20 @@ def run_one(job: cfg.Job, root: Path, mesh_scale: float, force: bool,
 
     info = json.loads((job.directory(target) / "mesh" / "mesh_info.json").read_text())
 
+    if discard_meshes:
+        # a sweep keeps only the moduli and the mesh statistics, so the geometry
+        # and the meshes themselves are dead weight: one fine TPMS cell is about
+        # 266 MB, and the full sweep would need hundreds of gigabytes to hold
+        # meshes nothing reads again
+        mesh_dir = job.directory(target) / "mesh"
+        for leftover in ("shape.step", "mesh.vtk", "remeshed.vtk"):
+            (mesh_dir / leftover).unlink(missing_ok=True)
+        for scratch in (job.directory(target) / "scratch_linear",):
+            if scratch.is_dir():
+                for item in scratch.iterdir():
+                    item.unlink()
+                scratch.rmdir()
+
     return {
         "job": job.label,
         "status": "done",
@@ -119,9 +137,9 @@ def run_one(job: cfg.Job, root: Path, mesh_scale: float, force: bool,
 
 
 def _worker(payload: Tuple) -> dict:
-    job, root, mesh_scale, force, nonlinear = payload
+    job, root, mesh_scale, force, nonlinear, discard = payload
     try:
-        return run_one(job, root, mesh_scale, force, nonlinear)
+        return run_one(job, root, mesh_scale, force, nonlinear, discard)
     except Exception:
         return {"job": job.label, "mesh_scale": mesh_scale,
                 "status": "failed", "error": traceback.format_exc()}
@@ -258,6 +276,12 @@ def main() -> None:
                         help="also run this load case at each scale, for spot checks")
     parser.add_argument("--tolerance", type=float, default=0.02,
                         help="relative deviation accepted on the effective moduli")
+    parser.add_argument("--discard-meshes", action="store_true",
+                        help="delete the CAD and the meshes once the moduli are out. "
+                             "A sweep reads none of them again and a fine TPMS cell is "
+                             "about 266 MB, so a full sweep otherwise needs hundreds of "
+                             "gigabytes. Incompatible with --nonlinear-load-case reruns, "
+                             "which need the mesh to still be there.")
     parser.add_argument("--report", action="store_true",
                         help="only rebuild the comparison from results already on disk")
     args = parser.parse_args()
@@ -270,7 +294,8 @@ def main() -> None:
         return
 
     # coarsest first: the cheap scales finish early and expose failures sooner
-    payloads = [(job, args.root, scale, args.force, args.nonlinear_load_case)
+    payloads = [(job, args.root, scale, args.force, args.nonlinear_load_case,
+                 args.discard_meshes)
                 for scale in sorted(args.mesh_scales, reverse=True)
                 for job in jobs]
 
