@@ -27,7 +27,7 @@ import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Tuple
+from typing import Callable, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -46,13 +46,13 @@ DENSITY_TOLERANCE = 0.002
 MAX_DENSITY_REFINEMENTS = 3
 
 
-def _lattice_radius_fit(name: str) -> object:
+def _lattice_radius_fit(name: str) -> Callable[[float], float]:
     """Return belem's fitted radius(density) model for one lattice family"""
     import belem
     from belem.utils import compute_density_offset_polyfit_from_dataset_json_file
 
-    dataset = (importlib.resources.files(belem) / "data"
-               / "radius_densities_lattice_cell_size_4.json").as_posix()
+    dataset = str(importlib.resources.files(belem) / "data"
+                  / "radius_densities_lattice_cell_size_4.json")
     return compute_density_offset_polyfit_from_dataset_json_file(dataset)[name]
 
 
@@ -192,7 +192,7 @@ def main() -> None:
         return
 
     payloads = [(job, args.root, args.force, args.mesh_scale) for job in jobs]
-    failures = []
+    failures: List[dict] = []
     done = 0
 
     if args.workers <= 1:

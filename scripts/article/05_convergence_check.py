@@ -59,6 +59,7 @@ import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from types import ModuleType
 from typing import Dict, List, Sequence, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -68,10 +69,12 @@ import article_config as cfg
 HERE = Path(__file__).resolve().parent
 
 
-def _load(stem: str):
+def _load(stem: str) -> ModuleType:
     """Import one of the numbered step modules, whose names are not identifiers"""
     path = next(HERE.glob(f"{stem}*.py"))
     spec = importlib.util.spec_from_file_location(f"step_{stem}", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -319,7 +322,7 @@ def main() -> None:
     if args.nonlinear_load_case:
         print(f"including the {args.nonlinear_load_case} load case at each scale", flush=True)
     if args.dry_run:
-        for job, _, scale, _, _ in payloads:
+        for job, _, scale, *_ in payloads:
             print(f"    {job.geometry.slug:<34s} {job.density_percent:>2d}%  scale {scale:g}")
         return
 
