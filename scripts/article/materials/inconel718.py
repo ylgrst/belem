@@ -8,7 +8,7 @@ refer to that document.
 Two quantities the EPICP law needs are not in the data sheet and are derived or
 taken from literature. Both are flagged in place and are easy to override.
 """
-from typing import Dict, NamedTuple, Tuple
+from typing import Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -67,95 +67,66 @@ PARAMETER_SETS: Dict[str, ParameterSet] = {
 # in both orientations, so the choice can be revisited without changing source.
 DEFAULT_PARAMETER_SET = "60um_cw_sta_xy"
 
-# NOT IN THE DATA SHEET. Poisson ratio of wrought Inconel 718 is 0.29 to 0.30 in
-# the literature; 0.3 is used here, as in the existing belem scripts.
-POISSON_RATIO = 0.3
+# Not in the Renishaw data sheet. NASA CR-123774 Fig 7.21 gives Poisson's ratio
+# against temperature for Alloy 718; the room temperature value reads about 0.29.
+# The scan has lost the decimal point on that axis, but 0.29 is also the standard
+# wrought value and is consistent with Fig 7.241, which puts G near 77 GPa.
+POISSON_RATIO = 0.29
 
-# NOT IN THE DATA SHEET as a single value. Page 2 gives a wrought coefficient of
-# thermal expansion of 12e-6 to 16e-6 per K over 25 to 760 degrees C. The low end
-# of that band applies near room temperature, which is where the campaign runs.
+# Page 2 of the Renishaw sheet gives a wrought coefficient of 12e-6 to 16e-6 per K
+# over 25 to 760 degrees C. NASA CR-123774 is more specific, 13.1e-6 over 20 to
+# 100 degrees C, which is the range the campaign runs in.
 THERMAL_EXPANSION = 13.0e-6
 
-# Fraction of the elongation after fracture taken as uniform elongation, i.e. the
-# strain at which necking starts.
+# Hardening of the EPICP law, sigma_y(p) = Re + k * p**m.
 #
-# THIS IS AN ASSUMPTION, NOT A DATA SHEET VALUE, and it is the single least
-# certain input of the campaign. The data sheet reports elongation after
-# fracture, which includes post necking deformation, while the Considere
-# construction below needs the uniform elongation. For a precipitation hardened
-# nickel superalloy the uniform part is roughly half to two thirds of the total.
-# Set it to 1.0 to use the full reported elongation, which maximises the fitted
-# hardening. Better: replace k and m outright with values fitted to a measured
-# stress strain curve, via epicp_props(..., hardening=(k, m)).
-UNIFORM_ELONGATION_FRACTION = 0.6
+# The Renishaw data sheet reports no hardening law, only a proof stress, a UTS
+# and an elongation. Those three cannot determine three Ludwik parameters: a
+# Considere construction over them leaves one degree of freedom, and starting
+# the solver from different guesses reproduces both reported values exactly
+# while giving m anywhere from 0.07 to 0.43. A measured curve is needed.
+#
+# NASA CR-123774 Fig 7.4121 is a room temperature tensile curve for aged Alloy
+# 718. Digitising it and fitting Ludwik to true stress against true plastic
+# strain gives the values below, root mean square residual 5.8 MPa over nine
+# points. As a check, the fit implies a 0.2 percent offset proof stress of
+# 1273 MPa against the 1275 MPa Renishaw reports, from an independent source
+# fifty years apart.
+#
+# Re is the initial yield surface, not the proof stress. Passing the data
+# sheet's 1275 MPa in as Re, as an earlier version of this module did, puts the
+# model's own proof stress at 1346 MPa, 5.6 percent above the intended target.
+#
+# Two caveats. The curve is wrought rather than additively manufactured;
+# Gallmeyer et al. (arXiv:1909.12290) Fig 3 plots wrought IN718 among LPBF
+# IN718 heat treated curves and they lie together, which is what justifies the
+# substitution. And the uncertainties are regression scatter only, not the
+# error of reading a 1972 scan by eye.
+YIELD_STRENGTH = 1192.6        # Re, MPa, +/- 26.4 from the fit
+HARDENING_MODULUS = 1113.6     # k,  MPa, +/- 53.4
+HARDENING_EXPONENT = 0.4236    # m,       +/- 0.0441
 
-
-def fit_ludwik_hardening(
-    young_modulus: float,
-    yield_strength: float,
-    ultimate_tensile_strength: float,
-    uniform_elongation: float,
-) -> Tuple[float, float]:
-    """Fit the Ludwik hardening of the EPICP law to a tensile test summary
-
-    EPICP hardens as sigma_y(p) = Re + k * p**m, with p the accumulated plastic
-    strain. Two conditions at the onset of necking determine k and m:
-
-    * the true stress there equals Re + k * p_u**m
-    * the Considere criterion, d(sigma)/d(epsilon) = sigma, which for this law
-      reads k * m * p_u**(m - 1) = sigma_u
-
-    Dividing one by the other gives m directly, then k follows.
-
-    :param young_modulus: bulk modulus in MPa
-    :param yield_strength: 0.2 percent proof stress in MPa
-    :param ultimate_tensile_strength: engineering UTS in MPa
-    :param uniform_elongation: engineering strain at the UTS, dimensionless
-    :return: the pair (k, m), k in MPa and m dimensionless
-    """
-    if uniform_elongation <= 0.0:
-        raise ValueError("uniform_elongation must be strictly positive")
-
-    true_stress_at_necking = ultimate_tensile_strength * (1.0 + uniform_elongation)
-    if true_stress_at_necking <= yield_strength:
-        raise ValueError(
-            "the true stress at necking must exceed the yield strength; "
-            f"got {true_stress_at_necking:.1f} MPa against {yield_strength:.1f} MPa"
-        )
-
-    true_strain_at_necking = np.log(1.0 + uniform_elongation)
-    plastic_strain_at_necking = true_strain_at_necking - true_stress_at_necking / young_modulus
-    if plastic_strain_at_necking <= 0.0:
-        raise ValueError("the plastic strain at necking came out non positive")
-
-    hardening_exponent = (
-        plastic_strain_at_necking * true_stress_at_necking
-        / (true_stress_at_necking - yield_strength)
-    )
-    hardening_modulus = (
-        (true_stress_at_necking - yield_strength)
-        / plastic_strain_at_necking ** hardening_exponent
-    )
-
-    return float(hardening_modulus), float(hardening_exponent)
+HARDENING_REFERENCE = (
+    "NASA CR-123774, Materials Data Handbook: Inconel Alloy 718, 2nd edition, "
+    "Muraca and Whittick, April 1972, Fig 7.4121, room temperature curve"
+)
 
 
 def epicp_props(
     parameter_set: str = DEFAULT_PARAMETER_SET,
     poisson_ratio: float = POISSON_RATIO,
     thermal_expansion: float = THERMAL_EXPANSION,
-    uniform_elongation_fraction: float = UNIFORM_ELONGATION_FRACTION,
-    hardening: Tuple[float, float] = None,
+    hardening: Optional[Tuple[float, float]] = None,
 ) -> npt.NDArray[np.float64]:
     """Build the EPICP property vector for one Renishaw parameter set
 
-    Simcoon's EPICP law takes [E, nu, alpha, Re, k, m].
+    Simcoon's EPICP law takes [E, nu, alpha, Re, k, m]. The modulus comes from
+    the Renishaw sheet, the hardening from the NASA curve fit above.
 
-    :param parameter_set: key into PARAMETER_SETS
-    :param poisson_ratio: not a data sheet value, see POISSON_RATIO
-    :param thermal_expansion: not a single data sheet value, see THERMAL_EXPANSION
-    :param uniform_elongation_fraction: see UNIFORM_ELONGATION_FRACTION
-    :param hardening: explicit (k, m) that bypasses the Considere fit entirely
+    :param parameter_set: key into PARAMETER_SETS, selects the modulus
+    :param poisson_ratio: see POISSON_RATIO
+    :param thermal_expansion: see THERMAL_EXPANSION
+    :param hardening: explicit (k, m) replacing the NASA fit
     :return: the six EPICP properties
     """
     if parameter_set not in PARAMETER_SETS:
@@ -164,21 +135,15 @@ def epicp_props(
             f"Available: {', '.join(sorted(PARAMETER_SETS))}"
         )
     material = PARAMETER_SETS[parameter_set]
-
-    if hardening is None:
-        hardening = fit_ludwik_hardening(
-            young_modulus=material.young_modulus,
-            yield_strength=material.yield_strength,
-            ultimate_tensile_strength=material.ultimate_tensile_strength,
-            uniform_elongation=uniform_elongation_fraction * material.elongation_after_fracture,
-        )
-    hardening_modulus, hardening_exponent = hardening
+    hardening_modulus, hardening_exponent = (
+        hardening if hardening is not None
+        else (HARDENING_MODULUS, HARDENING_EXPONENT))
 
     return np.array([
         material.young_modulus,
         poisson_ratio,
         thermal_expansion,
-        material.yield_strength,
+        YIELD_STRENGTH,
         hardening_modulus,
         hardening_exponent,
     ])
@@ -188,29 +153,21 @@ def describe(parameter_set: str = DEFAULT_PARAMETER_SET) -> str:
     """Return a readable summary of the properties actually used"""
     material = PARAMETER_SETS[parameter_set]
     props = epicp_props(parameter_set)
-    uniform_elongation = UNIFORM_ELONGATION_FRACTION * material.elongation_after_fracture
-
-    # reconstruct the UTS the fitted law predicts, as a sanity check
-    plastic_strain = np.log(1.0 + uniform_elongation) - props[3] / props[0]
-    true_stress = props[3] + props[4] * plastic_strain ** props[5]
-    predicted_uts = true_stress / (1.0 + uniform_elongation)
+    proof = props[3] + props[4] * 0.002 ** props[5]
 
     return "\n".join([
-        f"Inconel 718, Renishaw RenAM 500 series data sheet H-5800-6794-03-A, page {material.page}",
-        f"  parameter set     {material.label}",
-        f"  condition         {material.condition}, {material.orientation}",
-        f"  E                 {props[0]:.0f} MPa        (data sheet)",
-        f"  nu                {props[1]:.3f}             (literature, not in the data sheet)",
-        f"  alpha             {props[2]:.2e} 1/K      (data sheet band 12e-6 to 16e-6)",
-        f"  Re                {props[3]:.0f} MPa         (data sheet yield strength)",
-        f"  k                 {props[4]:.1f} MPa        (fitted, not in the data sheet)",
-        f"  m                 {props[5]:.4f}            (fitted, not in the data sheet)",
-        f"  fit inputs        UTS {material.ultimate_tensile_strength:.0f} MPa, "
-        f"elongation after fracture {100 * material.elongation_after_fracture:.0f} percent",
-        f"                    uniform elongation taken as {100 * uniform_elongation:.1f} percent "
-        f"({UNIFORM_ELONGATION_FRACTION:.2f} of it)",
-        f"  fit check         law predicts UTS {predicted_uts:.0f} MPa "
-        f"against {material.ultimate_tensile_strength:.0f} MPa reported",
+        "Inconel 718, additively manufactured, solution treated and aged",
+        f"  modulus from    Renishaw RenAM 500 data sheet H-5800-6794-03-A, page {material.page}",
+        f"  hardening from  {HARDENING_REFERENCE}",
+        f"  parameter set   {material.label}",
+        f"  E               {props[0]:.0f} MPa",
+        f"  nu              {props[1]:.3f}",
+        f"  alpha           {props[2]:.2e} 1/K",
+        f"  Re              {props[3]:.1f} MPa   (initial yield, not the proof stress)",
+        f"  k               {props[4]:.1f} MPa",
+        f"  m               {props[5]:.4f}",
+        f"  check           implied 0.2 percent proof stress {proof:.0f} MPa, "
+        f"data sheet reports {material.yield_strength:.0f}",
     ])
 
 

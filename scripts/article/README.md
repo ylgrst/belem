@@ -2,7 +2,7 @@
 
 A full factorial homogenisation study: every strut based lattice and every TPMS
 part microgen offers, in a 5 mm cubic RVE, at ten densities from 5 to 50 percent,
-in Inconel 718.
+in an additively manufactured nickel superalloy.
 
 | | count |
 | --- | --- |
@@ -15,8 +15,8 @@ in Inconel 718.
 | non linear FEA runs | 3420 (9 load cases each) |
 | law identifications | 380 |
 
-`python article_config.py` prints the campaign, `python inconel718.py` prints the
-material.
+`python article_config.py` prints the campaign, `python materials/inconel718.py`
+prints the material.
 
 ## The four steps
 
@@ -143,17 +143,50 @@ two that every cell shares matters far less than the resolution being the same
 everywhere. **Choose `--mesh-scale` deliberately, keep it fixed across the whole
 campaign, and report it.** `05_convergence_check.py` measures where to put it.
 
+## Bulk material
+
+Set `MATERIAL` in `article_config.py`; every step and every shard reads it from
+there, and step 2 prints the properties it used into its log.
+
+| | `inconel718` | `inconel625` |
+| --- | --- | --- |
+| condition | solution treated and aged | as built |
+| modulus | Renishaw RenAM 500 data sheet | measured, per specimen |
+| hardening | Ludwik fit to NASA CR-123774 Fig 7.4121 | Ludwik fit to NIST AM Bench 2022 |
+| yield | high, modest hardening | lower, much more hardening capacity |
+| setup needed | none | fetch and fit the dataset once |
+
+The two differ by heat treatment as much as by alloy, so switching between them
+is not a sensitivity study on composition, and which one a figure came from has
+to be stated.
+
+Inconel 625 is fitted rather than transcribed, and the dataset is not
+redistributed in this repository:
+
+    python materials/inconel625.py --download
+    python materials/inconel625.py --fit
+
+The first fetches the five ASTM E8 subsize tensile curves of NIST AM Bench 2022
+(doi:10.18434/mds2-2760), the second regresses Ludwik over the pooled true
+stress and true plastic strain of all five and caches the result next to them.
+Nothing is hard coded, so the module raises until that has been done. If NIST's
+download endpoint is timing out, pull the same files by hand from the DOI
+landing page into `materials/data_in625/` and run `--fit` alone.
+
 ## Assumptions worth reviewing
 
-* **Hardening parameters.** The EPICP law needs `k` and `m`, which the Renishaw
-  data sheet does not report. `inconel718.py` fits them with a Considere
-  construction from the yield strength, the UTS and the elongation, assuming the
-  uniform elongation is 60 percent of the elongation after fracture. That fraction
-  is an estimate, and it is the least certain input of the campaign. Override it,
-  or pass measured `(k, m)` directly via `epicp_props(hardening=...)`.
-* **Poisson ratio and thermal expansion** are not in the data sheet either;
-  0.3 and 13e-6 per K come from the literature and from the data sheet's wrought
-  band respectively.
+* **Hardening parameters.** The EPICP law needs `k` and `m`. For Inconel 718
+  these come from fitting Ludwik to the room temperature tensile curve of
+  NASA CR-123774 Fig 7.4121, because the Renishaw data sheet reports only a proof
+  stress, a UTS and an elongation, and those three do not determine three Ludwik
+  parameters: a Considere construction over them leaves one degree of freedom and
+  admits `m` anywhere from 0.07 to 0.43. The fit is checked against the data sheet
+  by an independent route, its implied 0.2 percent proof stress being 1273 MPa
+  against the 1275 MPa reported. It is however a wrought curve standing in for a
+  printed one. Pass measured `(k, m)` via `epicp_props(hardening=...)` to override.
+* **Poisson ratio and thermal expansion** are in neither source; 0.29 and
+  13e-6 per K come from NASA CR-123774 and are consistent with the data sheet's
+  wrought band.
 * **Identification bounds** scale with each cell's own stress at 0.2 percent
   plastic strain, which is what lets one set of bounds span a 5 percent and a
   50 percent dense cell. The multipliers are in `PARAMETER_BOUNDS` in step 4.

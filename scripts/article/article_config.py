@@ -30,8 +30,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterator, List, NamedTuple, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, List, NamedTuple, Sequence, Tuple
+
+if TYPE_CHECKING:
+    import materials
 
 # --------------------------------------------------------------------------
 # campaign definition
@@ -93,6 +97,37 @@ TPMS_REMESH_HMAX_RATIO = 0.05 / 4.0
 
 # Grid resolution microgen uses to sample the implicit TPMS function.
 TPMS_RESOLUTION = 50
+
+# --------------------------------------------------------------------------
+# bulk material
+# --------------------------------------------------------------------------
+
+# The alloy the whole campaign runs on, one of materials.MATERIALS.
+#
+# Change it here and every step and every shard follows, which matters because
+# a campaign mixing two bulk materials across its shards would be silently
+# wrong: nothing downstream records which alloy a given result came from, so
+# the FEA step prints the material summary into its log instead.
+#
+# "inconel718" is solution treated and aged, with a high yield and modest
+# hardening, and its properties are available without any further setup.
+# "inconel625" is as built, with a lower yield and much more hardening
+# capacity, and it has to be fitted to the NIST dataset once before use, see
+# materials/inconel625.py. The two differ by heat treatment as much as by
+# alloy, so swapping between them is not a sensitivity study on composition.
+MATERIAL = "inconel718"
+
+
+def material() -> "materials.Material":
+    """Return the module holding the bulk material properties
+
+    Imported on demand rather than at module import, so that a step which only
+    needs the job list does not pay for numpy and the material modules.
+    """
+    import materials
+
+    return materials.get(MATERIAL)
+
 
 # --------------------------------------------------------------------------
 # load cases
@@ -284,7 +319,8 @@ def is_done(directory: Path, step: str) -> bool:
     return (Path(directory) / f".{step}.done").is_file()
 
 
-def run_in_directory(directory: Path):
+@contextmanager
+def run_in_directory(directory: Path) -> Iterator[Path]:
     """Context manager that runs a job from inside its own directory
 
     fedoo writes a temporary _mesh_.npz into the current working directory while
@@ -292,20 +328,14 @@ def run_in_directory(directory: Path):
     clobber each other's temporary file and fail. Every parallel job therefore
     gets its own working directory.
     """
-    from contextlib import contextmanager
-
-    @contextmanager
-    def _cd(target: Path):
-        target = Path(target)
-        target.mkdir(parents=True, exist_ok=True)
-        previous = Path.cwd()
-        os.chdir(target)
-        try:
-            yield target
-        finally:
-            os.chdir(previous)
-
-    return _cd(directory)
+    target = Path(directory)
+    target.mkdir(parents=True, exist_ok=True)
+    previous = Path.cwd()
+    os.chdir(target)
+    try:
+        yield target
+    finally:
+        os.chdir(previous)
 
 
 if __name__ == "__main__":

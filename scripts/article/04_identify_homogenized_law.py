@@ -31,7 +31,6 @@ from typing import List, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import article_config as cfg
-import inconel718
 
 # EPCHG hardening structure: one isotropic term (Q, b) and two kinematic ones
 # (C_1, D_1, C_2, D_2), on top of the yield stress. This is the structure the
@@ -113,7 +112,7 @@ def identify_one(job: cfg.Job, root: Path, force: bool, criterion: str,
         float(effective_young[0]),
         float(effective_poisson[0]),
         float(effective_shear[0]),
-        inconel718.THERMAL_EXPANSION,
+        cfg.material().THERMAL_EXPANSION,
     ])
     criterion_params = np.atleast_1d(np.loadtxt(criterion_file))
 

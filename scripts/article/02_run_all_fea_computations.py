@@ -11,7 +11,8 @@ For each geometry and density this runs
 * the nine non linear load cases: six monotonic ones that feed the yield surface
   identification, and three cyclic ones that feed the homogenised law
 
-The bulk material is Inconel 718 from the Renishaw data sheet, see inconel718.py.
+The bulk material is whichever alloy article_config.MATERIAL names, see the
+materials package. Every run prints the properties it used.
 
 Sharding is per computation rather than per geometry, so a machine that draws
 several expensive load cases is not left behind. Across four machines:
@@ -37,7 +38,6 @@ from typing import List, NamedTuple, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import article_config as cfg
-import inconel718
 
 LINEAR_TASK = "linear_homogenisation"
 
@@ -88,7 +88,7 @@ def run_linear(task: Task, root: Path) -> dict:
 
     directory = task.job.directory(root)
     output = directory / "effective_stiffness_tensor.txt"
-    props = inconel718.epicp_props()
+    props = cfg.material().epicp_props()
 
     started = time.time()
     # the working directory is per job: fedoo writes scratch files into it
@@ -108,7 +108,7 @@ def run_load_case(task: Task, root: Path) -> dict:
     from belem.fem.fea import Load, run_fea_computation
 
     directory = task.job.directory(root) / task.load_case
-    props = inconel718.epicp_props()
+    props = cfg.material().epicp_props()
     loads = [Load("Dirichlet", node_id, variables, values)
              for node_id, variables, values in cfg.LOAD_CASES[task.load_case]]
 
@@ -178,7 +178,7 @@ def main() -> None:
     print(f"FEA: {len(mine)} of {len(tasks)} computations "
           f"(shard {args.shard + 1} of {args.shards}, {args.workers} worker process(es))",
           flush=True)
-    print(inconel718.describe(), flush=True)
+    print(cfg.material().describe(), flush=True)
     if args.dry_run:
         for task in mine:
             print(f"    {task.label}")
