@@ -3,24 +3,25 @@
   "condition": "as built IN625, no heat treatment",
   "specimen_ids": [
     "T3",
-    "T4"
+    "T4",
+    "T6"
   ],
   "nominal_strain_rate": 0.001,
-  "points_fitted": 420,
-  "young_modulus": 195743.81773478427,
-  "young_modulus_std": 2971.0258545219986,
-  "proof_stress": 813.4952996900289,
-  "proof_stress_std": 1.5246261876902736,
-  "yield_strength": 816.4017163914302,
-  "yield_strength_err": 1.2203696805208915,
-  "hardening_modulus": 1523.476483354191,
-  "hardening_modulus_err": 21.24779807740319,
-  "hardening_exponent": 0.7534680692550738,
-  "hardening_exponent_err": 0.007317063597930653,
-  "rms_residual": 3.699112215636301,
+  "points_fitted": 632,
+  "young_modulus": 195973.25127879783,
+  "young_modulus_std": 2447.4359210670555,
+  "proof_stress": 814.0867032715283,
+  "proof_stress_std": 1.4997243304069927,
+  "yield_strength": 817.1955098547882,
+  "yield_strength_err": 1.0179478645065039,
+  "hardening_modulus": 1531.0583867784321,
+  "hardening_modulus_err": 17.797033415413605,
+  "hardening_exponent": 0.754024803228782,
+  "hardening_exponent_err": 0.006093048533251173,
+  "rms_residual": 3.804524455932938,
   "strain_window": [
     0.002,
     0.1
   ],
-  "rate_sensitivity_percent": 1.4344105546175552
+  "rate_sensitivity_percent": 1.3279293506036005
 }

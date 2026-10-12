@@ -92,10 +92,10 @@ THERMAL_EXPANSION = 12.8e-6
 # necking strain, beyond which the engineering to true conversion is invalid.
 #
 # Worth knowing for step 3, which identifies yield surfaces: the fitted curve
-# tracks the measurement to better than 0.2 percent of flow stress above 0.4
+# tracks the measurement to better than 0.25 percent of flow stress above 0.4
 # percent plastic strain, but runs about 1 percent high between 0.2 and 0.4
-# percent, peaking at 16 MPa right at the 0.2 percent offset. That band holds
-# only 8 of the 420 fitted points, so the regression is driven by the rest of
+# percent, reaching 17 MPa right at the 0.2 percent offset. That band holds
+# only 13 of the 632 fitted points, so the regression is driven by the rest of
 # the curve and Ludwik's shape cannot quite follow the knee. The consequence is
 # that the homogenised yield onset is biased high by about a percent, uniformly
 # across every cell, which is a bias the geometries share rather than one that

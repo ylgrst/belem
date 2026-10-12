@@ -152,9 +152,9 @@ there, and step 2 prints the properties it used into its log. The default is
 | | `inconel625` (default) | `inconel718` |
 | --- | --- | --- |
 | condition | as built | solution treated and aged |
-| modulus | 195 744 MPa, measured per specimen | 195 000 MPa, Renishaw data sheet |
+| modulus | 195 973 MPa, measured per specimen | 195 000 MPa, Renishaw data sheet |
 | hardening | Ludwik fit to NIST AM Bench 2022 | Ludwik fit to NASA CR-123774 |
-| Re, k, m | 816.4 MPa, 1523.5 MPa, 0.7535 | 1192.6 MPa, 1113.6 MPa, 0.4236 |
+| Re, k, m | 817.2 MPa, 1531.1 MPa, 0.7540 | 1192.6 MPa, 1113.6 MPa, 0.4236 |
 | source type | measured AM curves | digitised wrought figure |
 | ready to use | yes, fit is committed | yes |
 
@@ -179,28 +179,26 @@ The dataset (doi:10.18434/mds2-2760) is not redistributed here. `--download`
 takes it from NIST when their distribution is up and from the Internet Archive
 when it is not, which is currently the only route that works.
 
-The committed fit uses specimens T3 and T4, the two quasi-static ones obtained
-so far. That is a floor, not the dataset's limit: T4 and T7 are both confirmed
-to have archive captures, and T6, the third quasi-static specimen, is unknown
-only because the archive was offline when it was last asked. Re-running
-`--download` when both services are healthy should pick up what is missing, and
-a refit with three quasi-static specimens instead of two is one command. Any
-report of a file being unavailable names the reason, so a transient refusal can
-be told apart from a file that genuinely was never captured.
+The committed fit uses T3, T4 and T6, which is every quasi-static specimen the
+dataset contains. Of the two tested at the faster rate, T5 is held and used for
+the rate check below; only T7 is still missing, and it has a confirmed archive
+capture, so a later `--download` should pick it up. Any report of a file being
+unavailable names the reason, so a transient refusal can be told apart from a
+file that genuinely was never captured.
 
 Each engineering curve is converted to true stress and true plastic strain with
 that specimen's own measured modulus, and Ludwik is regressed over the pooled
 points between 0.2 and 10 percent plastic strain. Pooling weights each specimen
 by how much of it falls in the window, which is what we want from specimens that
-fractured at different strains. Residual is 3.7 MPa rms over 420 points.
+fractured at different strains. Residual is 3.8 MPa rms over 632 points.
 
 Two numbers worth carrying into the article. The dataset's faster specimen
-(1e-2 per second) puts the strain rate sensitivity at 1.4 percent of flow stress
+(1e-2 per second) puts the strain rate sensitivity at 1.3 percent of flow stress
 per decade, which bounds the error of using a rate independent law. And the
-fitted curve tracks the measurement to better than 0.2 percent above 0.4 percent
-plastic strain but runs about 1 percent high below that, peaking at 16 MPa right
-at the 0.2 percent offset, so the homogenised yield onset is biased high by
-about a percent uniformly across every cell.
+fitted curve tracks the measurement to better than 0.25 percent above 0.4
+percent plastic strain but runs about 1 percent high below that, reaching 17 MPa
+right at the 0.2 percent offset, so the homogenised yield onset is biased high
+by about a percent uniformly across every cell.
 
 ## Assumptions worth reviewing
 
