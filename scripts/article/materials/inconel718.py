@@ -1,9 +1,26 @@
 """
 Inconel 718 bulk material properties for the article campaign.
 
-Values are transcribed from the Renishaw RenAM 500 series material data sheet
-for Inconel 718, part no. H-5800-6794-03-A, issued 08.2024. Page numbers below
-refer to that document.
+NOTE ON CONDITION: this module describes SOLUTION TREATED AND AGED material,
+while the campaign has settled on as built for both alloys, see
+materials/inconel625.py. It is kept because it works and is fully sourced, but
+it is not condition matched to the Inconel 625 module and the two should not be
+compared to each other as an alloy effect.
+
+The as built replacement is blocked on data rather than on work. NIST publishes
+measured as built PBF-LB IN718 tensile curves, eight ASTM E8 miniature
+specimens at 1e-3 per second, as AMB2025-02, doi:10.18434/mds2-3735, which is
+the direct counterpart of the IN625 dataset. Their file distribution has been
+returning Cloudflare gateway timeouts, and unlike the IN625 files these have
+never been captured by the Internet Archive, so there is no way round it. Once
+that dataset downloads, this module should be rebuilt the way inconel625.py is:
+fit the curves, cache the fit, and cross check the implied proof stress against
+the Renishaw as built sets already listed below, 735 MPa horizontal and 632 MPa
+vertical.
+
+Values here are transcribed from the Renishaw RenAM 500 series material data
+sheet for Inconel 718, part no. H-5800-6794-03-A, issued 08.2024. Page numbers
+below refer to that document.
 
 Two quantities the EPICP law needs are not in the data sheet and are derived or
 taken from literature. Both are flagged in place and are easy to override.

@@ -109,13 +109,18 @@ TPMS_RESOLUTION = 50
 # wrong: nothing downstream records which alloy a given result came from, so
 # the FEA step prints the material summary into its log instead.
 #
-# "inconel718" is solution treated and aged, with a high yield and modest
-# hardening, and its properties are available without any further setup.
-# "inconel625" is as built, with a lower yield and much more hardening
-# capacity, and it has to be fitted to the NIST dataset once before use, see
-# materials/inconel625.py. The two differ by heat treatment as much as by
-# alloy, so swapping between them is not a sensitivity study on composition.
-MATERIAL = "inconel718"
+# "inconel625" is as built PBF-LB material whose hardening is fitted to the
+# measured tensile curves of NIST AM Bench 2022, doi:10.18434/mds2-2760. That
+# is the campaign's bulk material: as built is the state a printed lattice is
+# normally used in, and it is the only state for which measured AM curves are
+# published.
+#
+# "inconel718" is still the solution treated and aged configuration, drawn from
+# the Renishaw data sheet and a NASA tensile curve. It is not condition matched
+# to the above, so selecting it changes heat treatment as well as alloy and the
+# two results are not an alloy comparison. Its as built counterpart exists as
+# NIST doi:10.18434/mds2-3735 but will not download, see inconel718.py.
+MATERIAL = "inconel625"
 
 
 def material() -> "materials.Material":

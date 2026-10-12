@@ -146,32 +146,54 @@ campaign, and report it.** `05_convergence_check.py` measures where to put it.
 ## Bulk material
 
 Set `MATERIAL` in `article_config.py`; every step and every shard reads it from
-there, and step 2 prints the properties it used into its log.
+there, and step 2 prints the properties it used into its log. The default is
+`inconel625`.
 
-| | `inconel718` | `inconel625` |
+| | `inconel625` (default) | `inconel718` |
 | --- | --- | --- |
-| condition | solution treated and aged | as built |
-| modulus | Renishaw RenAM 500 data sheet | measured, per specimen |
-| hardening | Ludwik fit to NASA CR-123774 Fig 7.4121 | Ludwik fit to NIST AM Bench 2022 |
-| yield | high, modest hardening | lower, much more hardening capacity |
-| setup needed | none | fetch and fit the dataset once |
+| condition | as built | solution treated and aged |
+| modulus | 195 744 MPa, measured per specimen | 195 000 MPa, Renishaw data sheet |
+| hardening | Ludwik fit to NIST AM Bench 2022 | Ludwik fit to NASA CR-123774 |
+| Re, k, m | 816.4 MPa, 1523.5 MPa, 0.7535 | 1192.6 MPa, 1113.6 MPa, 0.4236 |
+| source type | measured AM curves | digitised wrought figure |
+| ready to use | yes, fit is committed | yes |
 
-The two differ by heat treatment as much as by alloy, so switching between them
-is not a sensitivity study on composition, and which one a figure came from has
-to be stated.
+**They are not condition matched.** IN625 here is as built and IN718 is aged, so
+running both varies heat treatment as well as alloy and the pair is not an alloy
+comparison. As built is the campaign's choice because it is the state a printed
+lattice is normally used in, and the only state for which measured AM tensile
+curves are published. The as built IN718 counterpart exists, NIST AMB2025-02
+(doi:10.18434/mds2-3735, eight ASTM E8 miniature specimens at 1e-3 per second),
+but NIST's file distribution returns gateway timeouts and the Internet Archive
+never captured it, so that module is blocked on the data rather than on work.
 
-Inconel 625 is fitted rather than transcribed, and the dataset is not
-redistributed in this repository:
+### Refitting Inconel 625
+
+The fit is committed as `materials/inconel625_ludwik_fit.json`, so nothing needs
+fetching for a normal run. To reproduce or change it:
 
     python materials/inconel625.py --download
     python materials/inconel625.py --fit
 
-The first fetches the five ASTM E8 subsize tensile curves of NIST AM Bench 2022
-(doi:10.18434/mds2-2760), the second regresses Ludwik over the pooled true
-stress and true plastic strain of all five and caches the result next to them.
-Nothing is hard coded, so the module raises until that has been done. If NIST's
-download endpoint is timing out, pull the same files by hand from the DOI
-landing page into `materials/data_in625/` and run `--fit` alone.
+The dataset (doi:10.18434/mds2-2760) is not redistributed here. `--download`
+takes it from NIST when their distribution is up and from the Internet Archive
+when it is not, which is currently the only route that works. The committed fit
+uses specimens T3 and T4, the two quasi-static ones the archive holds; T6, also
+quasi-static, was never captured.
+
+Each engineering curve is converted to true stress and true plastic strain with
+that specimen's own measured modulus, and Ludwik is regressed over the pooled
+points between 0.2 and 10 percent plastic strain. Pooling weights each specimen
+by how much of it falls in the window, which is what we want from specimens that
+fractured at different strains. Residual is 3.7 MPa rms over 420 points.
+
+Two numbers worth carrying into the article. The dataset's faster specimen
+(1e-2 per second) puts the strain rate sensitivity at 1.4 percent of flow stress
+per decade, which bounds the error of using a rate independent law. And the
+fitted curve tracks the measurement to better than 0.2 percent above 0.4 percent
+plastic strain but runs about 1 percent high below that, peaking at 16 MPa right
+at the 0.2 percent offset, so the homogenised yield onset is biased high by
+about a percent uniformly across every cell.
 
 ## Assumptions worth reviewing
 

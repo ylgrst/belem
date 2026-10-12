@@ -1,0 +1,26 @@
+{
+  "source": "NIST AM Bench 2022, doi:10.18434/mds2-2760",
+  "condition": "as built IN625, no heat treatment",
+  "specimen_ids": [
+    "T3",
+    "T4"
+  ],
+  "nominal_strain_rate": 0.001,
+  "points_fitted": 420,
+  "young_modulus": 195743.81773478427,
+  "young_modulus_std": 2971.0258545219986,
+  "proof_stress": 813.4952996900289,
+  "proof_stress_std": 1.5246261876902736,
+  "yield_strength": 816.4017163914302,
+  "yield_strength_err": 1.2203696805208915,
+  "hardening_modulus": 1523.476483354191,
+  "hardening_modulus_err": 21.24779807740319,
+  "hardening_exponent": 0.7534680692550738,
+  "hardening_exponent_err": 0.007317063597930653,
+  "rms_residual": 3.699112215636301,
+  "strain_window": [
+    0.002,
+    0.1
+  ],
+  "rate_sensitivity_percent": 1.4344105546175552
+}

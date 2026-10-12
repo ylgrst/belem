@@ -1,0 +1,3 @@
+# The NIST dataset is not redistributed here, only the fit derived from it.
+# Fetch it with: python inconel625.py --download
+data_in625/
