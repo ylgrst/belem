@@ -37,6 +37,7 @@ import argparse
 import csv
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -105,6 +106,21 @@ FIT_STRAIN_WINDOW = (0.002, 0.10)
 MODULUS_STRAIN_WINDOW = (0.0005, 0.0025)
 MIN_MODULUS_POINTS = 5
 
+# NIST either serves a file promptly or hangs until Cloudflare gives up, so the
+# attempt on the original is cut short rather than given the full timeout. With
+# their distribution down, that is the difference between a fetch of a few
+# seconds per file and one of a minute per file.
+NIST_PROBE_TIMEOUT = 15.0
+
+# The archive rate limits its index and goes offline for maintenance, so
+# requests to it are paced and a refusal is retried with a widening gap. Both
+# failures are transient and neither means the file is absent: treating them as
+# absence is how an earlier version of this module concluded that specimens it
+# had already downloaded once had never been captured.
+ARCHIVE_PAUSE = 5.0
+ARCHIVE_RETRIES = 4
+ARCHIVE_TRANSIENT_CODES = (429, 500, 502, 503, 504)
+
 
 class Specimen(NamedTuple):
     """One measured curve, converted to true stress and true plastic strain"""
@@ -148,33 +164,67 @@ class LudwikFit(NamedTuple):
     rate_sensitivity_percent: Optional[float]
 
 
-def _wayback_url(original: str, timeout: float) -> Optional[str]:
-    """Return a Wayback Machine URL serving the original bytes, if one exists
+def _archive_capture(original: str, timeout: float) -> Tuple[Optional[str], str]:
+    """Find a Wayback Machine capture that serves the original bytes
 
     NIST's file distribution has been timing out behind Cloudflare while the
     rest of the repository stays up, so the archive is the practical way to get
-    the data. The id_ suffix asks the archive for the captured response itself
-    rather than its rewritten viewer page.
+    the data. The id_ suffix asks for the captured response itself rather than
+    the archive's rewritten viewer page.
+
+    The archive rate limits its index aggressively, and being told to slow down
+    is not the same as a file it never captured. Conflating the two makes a
+    transient 429 look like permanent absence, so they are told apart and the
+    reason is returned for reporting.
+
+    :return: the capture URL, or None and the reason there is none
     """
     query = ("http://web.archive.org/cdx/search/cdx?url="
              + urllib.parse.quote(original, safe="")
              + "&output=json&filter=statuscode:200&fl=timestamp&limit=-3")
-    try:
-        with urllib.request.urlopen(query, timeout=timeout) as response:
-            rows = json.loads(response.read().decode())
-    except Exception:  # noqa: BLE001 - the archive is a fallback, not a guarantee
-        return None
-    if len(rows) < 2:
-        return None
 
-    return f"http://web.archive.org/web/{rows[-1][0]}id_/{original}"
+    delay = ARCHIVE_PAUSE
+    for attempt in range(ARCHIVE_RETRIES):
+        try:
+            with urllib.request.urlopen(query, timeout=timeout) as response:
+                rows = json.loads(response.read().decode())
+        except urllib.error.HTTPError as error:
+            if error.code not in ARCHIVE_TRANSIENT_CODES:
+                return None, f"archive index returned {error.code}"
+            if attempt == ARCHIVE_RETRIES - 1:
+                return None, (f"archive index returned {error.code} on every attempt, "
+                              f"it is rate limiting or offline, try again later")
+            time.sleep(delay)
+            delay *= 2
+            continue
+        except Exception as error:  # noqa: BLE001 - the archive is a fallback
+            return None, f"archive index unreachable, {str(error)[:50]}"
+
+        if len(rows) < 2:
+            return None, "never captured by the archive"
+
+        return f"http://web.archive.org/web/{rows[-1][0]}id_/{original}", "ok"
+
+    return None, "archive index would not answer, try again later"
 
 
-# NIST either serves a file promptly or hangs until Cloudflare gives up, so the
-# attempt on the original is cut short rather than given the full timeout. With
-# their distribution down, that is the difference between a fetch of a few
-# seconds per file and one of a minute per file.
-NIST_PROBE_TIMEOUT = 15.0
+def _fetch(url: str, timeout: float, retries: int = 1) -> Optional[bytes]:
+    """Return the bytes at a URL, or None with the reason printed
+
+    :param retries: attempts before giving up, for sources that fail in bursts
+    """
+    delay = ARCHIVE_PAUSE
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                return bytes(response.read())
+        except Exception as error:  # noqa: BLE001 - every source here may be down
+            print(f"      {str(error)[:70]}")
+            if attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
+
+    return None
 
 
 def download(directory: Path = DATA_DIRECTORY, timeout: float = 60.0) -> List[Path]:
@@ -182,41 +232,39 @@ def download(directory: Path = DATA_DIRECTORY, timeout: float = 60.0) -> List[Pa
 
     :param directory: where to put the files
     :param timeout: per request, in seconds, except the NIST probe
-    :return: the paths actually written
+    :return: the paths of the files now present
     """
     directory.mkdir(parents=True, exist_ok=True)
     written: List[Path] = []
-    names = list(SPECIMEN_FILES.values()) + list(AUXILIARY_FILES)
 
-    for name in names:
+    for name in list(SPECIMEN_FILES.values()) + list(AUXILIARY_FILES):
         target = directory / name
         if target.is_file() and target.stat().st_size > 0:
-            print(f"  have        {name}")
+            print(f"  have         {name}")
             written.append(target)
             continue
 
         original = f"{BASE_URL}/{name}"
-        for label, url in (("nist", original), ("archive", None)):
-            attempt = timeout
+        print(f"  fetching     {name}")
+        source = "nist"
+        data = _fetch(original, min(timeout, NIST_PROBE_TIMEOUT))
+
+        if data is None:
+            url, reason = _archive_capture(original, timeout)
             if url is None:
-                url = _wayback_url(original, timeout)
-                if url is None:
-                    break
-                time.sleep(2.0)  # the archive rate limits
-            else:
-                attempt = min(timeout, NIST_PROBE_TIMEOUT)
-            try:
-                with urllib.request.urlopen(url, timeout=attempt) as response:
-                    data = response.read()
-            except Exception as error:  # noqa: BLE001 - try the next source
-                print(f"  {label} failed for {name}: {str(error)[:60]}")
+                print(f"  UNAVAILABLE  {name}: {reason}")
                 continue
-            target.write_bytes(data)
-            written.append(target)
-            print(f"  from {label:<8s} {name} ({len(data)} bytes)")
-            break
-        else:
-            print(f"  UNAVAILABLE {name}")
+            source = "archive"
+            data = _fetch(url, timeout, retries=ARCHIVE_RETRIES)
+            time.sleep(ARCHIVE_PAUSE)
+
+        if data is None:
+            print(f"  UNAVAILABLE  {name}: capture found but would not download")
+            continue
+
+        target.write_bytes(data)
+        written.append(target)
+        print(f"  from {source:<8s} {name} ({len(data)} bytes)")
 
     return written
 

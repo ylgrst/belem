@@ -177,9 +177,16 @@ fetching for a normal run. To reproduce or change it:
 
 The dataset (doi:10.18434/mds2-2760) is not redistributed here. `--download`
 takes it from NIST when their distribution is up and from the Internet Archive
-when it is not, which is currently the only route that works. The committed fit
-uses specimens T3 and T4, the two quasi-static ones the archive holds; T6, also
-quasi-static, was never captured.
+when it is not, which is currently the only route that works.
+
+The committed fit uses specimens T3 and T4, the two quasi-static ones obtained
+so far. That is a floor, not the dataset's limit: T4 and T7 are both confirmed
+to have archive captures, and T6, the third quasi-static specimen, is unknown
+only because the archive was offline when it was last asked. Re-running
+`--download` when both services are healthy should pick up what is missing, and
+a refit with three quasi-static specimens instead of two is one command. Any
+report of a file being unavailable names the reason, so a transient refusal can
+be told apart from a file that genuinely was never captured.
 
 Each engineering curve is converted to true stress and true plastic strain with
 that specimen's own measured modulus, and Ludwik is regressed over the pooled
