@@ -16,7 +16,7 @@ in an additively manufactured nickel superalloy.
 | law identifications | 380 |
 
 `python article_config.py` prints the campaign, `python materials/inconel718.py`
-prints the material.
+prints the material. Both are as built, see Bulk material below.
 
 ## The four steps
 
@@ -147,73 +147,92 @@ campaign, and report it.** `05_convergence_check.py` measures where to put it.
 
 Set `MATERIAL` in `article_config.py`; every step and every shard reads it from
 there, and step 2 prints the properties it used into its log. The default is
-`inconel625`.
+`inconel718`.
 
-| | `inconel625` (default) | `inconel718` |
+Both alloys are as built PBF-LB material whose hardening is fitted to measured
+AM tensile curves published by NIST, at the same condition, test standard and
+strain rate, from the same institution. Switching between them therefore varies
+the alloy and nothing else, so the pair is a genuine alloy comparison.
+
+| | `inconel718` (default) | `inconel625` |
 | --- | --- | --- |
-| condition | as built | solution treated and aged |
-| modulus | 195 973 MPa, measured per specimen | 195 000 MPa, Renishaw data sheet |
-| hardening | Ludwik fit to NIST AM Bench 2022 | Ludwik fit to NASA CR-123774 |
-| Re, k, m | 817.2 MPa, 1531.1 MPa, 0.7540 | 1192.6 MPa, 1113.6 MPa, 0.4236 |
-| source type | measured AM curves | digitised wrought figure |
-| ready to use | yes, fit is committed | yes |
+| dataset | AMB2025-02, doi:10.18434/mds2-3735 | AM Bench 2022, doi:10.18434/mds2-2760 |
+| specimens | 8, ASTM E8 miniature | 3, ASTM E8 subsize |
+| strain rate | 1e-3 1/s | 1e-3 1/s |
+| modulus | 184 000 MPa, Renishaw sheet | 195 973 MPa, measured |
+| Re, k, m | 685.5, 1146.4 MPa, 0.5621 | 817.2, 1531.1 MPa, 0.7540 |
+| measured proof, UTS | 690 MPa, 952 MPa | 814 MPa, 1037 MPa |
+| points fitted | 17 683 | 632 |
+| residual | 7.2 MPa rms | 3.8 MPa rms |
 
-**They are not condition matched.** IN625 here is as built and IN718 is aged, so
-running both varies heat treatment as well as alloy and the pair is not an alloy
-comparison. As built is the campaign's choice because it is the state a printed
-lattice is normally used in, and the only state for which measured AM tensile
-curves are published. The as built IN718 counterpart exists, NIST AMB2025-02
-(doi:10.18434/mds2-3735, eight ASTM E8 miniature specimens at 1e-3 per second),
-but NIST's file distribution returns gateway timeouts and the Internet Archive
-never captured it, so that module is blocked on the data rather than on work.
+Each module fetches its own dataset and caches the fit, which is committed, so a
+normal run needs no network:
 
-### Refitting Inconel 625
+    python materials/inconel718.py --download && python materials/inconel718.py --fit
+    python materials/inconel625.py --download && python materials/inconel625.py --fit
 
-The fit is committed as `materials/inconel625_ludwik_fit.json`, so nothing needs
-fetching for a normal run. To reproduce or change it:
+Neither dataset is redistributed here.
 
-    python materials/inconel625.py --download
-    python materials/inconel625.py --fit
+### Where the elastic moduli come from
 
-The dataset (doi:10.18434/mds2-2760) is not redistributed here. `--download`
-takes it from NIST when their distribution is up and from the Internet Archive
-when it is not, which is currently the only route that works.
+They are not symmetric, and the reason matters. Inconel 625 was measured on ASTM
+E8 subsize specimens with a 6 mm gauge width and stereo DIC over a 25.4 mm
+extensometer, so its modulus is measured from the curves themselves.
 
-The committed fit uses T3, T4 and T6, which is every quasi-static specimen the
-dataset contains. Of the two tested at the faster rate, T5 is held and used for
-the rate check below; only T7 is still missing, and it has a confirmed archive
-capture, so a later `--download` should pick it up. Any report of a file being
-unavailable names the reason, so a transient refusal can be told apart from a
-file that genuinely was never captured.
+Inconel 718 was measured on specimens about 1.25 mm wide and 1 mm thick with a
+3 mm contact extensometer, which measures its own compliance along with the
+specimen's. The curves give 124 GPa, which is what NIST publishes as its own
+challenge answer and which this module reproduces to 1.3 GPa, but it is about
+two thirds of what IN718 actually is and NIST states plainly that elastic
+properties are not provided by the dataset. The modulus therefore comes from the
+Renishaw RenAM 500 sheet, 184 GPa for as built horizontal material, whose proof
+stress and UTS on the same line (735 and 1051 MPa) sit close to the 691 and
+952 MPa measured here on a different build.
 
-Each engineering curve is converted to true stress and true plastic strain with
-that specimen's own measured modulus, and Ludwik is regressed over the pooled
-points between 0.2 and 10 percent plastic strain. Pooling weights each specimen
-by how much of it falls in the window, which is what we want from specimens that
-fractured at different strains. Residual is 3.8 MPa rms over 632 points.
+That compliance does not contaminate the hardening. The elastic part is
+subtracted using each specimen's own apparent slope, so a compliance
+proportional to load appears in the measurement and the subtraction alike and
+cancels, leaving the plastic strain right. Using a handbook modulus for the
+subtraction would have left the error in.
 
-Two numbers worth carrying into the article. The dataset's faster specimen
-(1e-2 per second) puts the strain rate sensitivity at 1.3 percent of flow stress
-per decade, which bounds the error of using a rate independent law. And the
-fitted curve tracks the measurement to better than 0.25 percent above 0.4
-percent plastic strain but runs about 1 percent high below that, reaching 17 MPa
-right at the 0.2 percent offset, so the homogenised yield onset is biased high
-by about a percent uniformly across every cell.
+### Checks the modules run on themselves
+
+`inconel718.py` re-derives the modulus, 0.2 percent proof stress, UTS and strain
+at UTS from the raw machine files and compares all four against the answers NIST
+publishes for the same specimens. It refuses to produce a fit if any disagrees by
+more than 2 percent, which is what makes trusting a parse of a vendor specific
+format reasonable. Current agreement is 1.02, 0.13, 0.00 and 0.06 percent.
+
+`inconel625.py` has no published answers to check against, so it reports the
+measured proof stress beside the model's own and the strain rate sensitivity,
+1.3 percent of flow stress per decade, measured from the dataset's faster
+specimen.
+
+### Known bias at the yield knee
+
+Both fits run high where the curve bends: about 1.7 percent over the measurement
+between 0.2 and 0.4 percent plastic strain for IN718 and about 1 percent for
+IN625, against better than 0.5 percent everywhere above that. Ludwik cannot
+follow a sharp knee and the regression is driven by the far larger number of
+points at higher strain. Step 3 identifies yield surfaces, so the homogenised
+yield onset carries that same bias, uniformly across every cell rather than
+differently between geometries.
 
 ## Assumptions worth reviewing
 
-* **Hardening parameters.** The EPICP law needs `k` and `m`. For Inconel 718
-  these come from fitting Ludwik to the room temperature tensile curve of
-  NASA CR-123774 Fig 7.4121, because the Renishaw data sheet reports only a proof
-  stress, a UTS and an elongation, and those three do not determine three Ludwik
-  parameters: a Considere construction over them leaves one degree of freedom and
-  admits `m` anywhere from 0.07 to 0.43. The fit is checked against the data sheet
-  by an independent route, its implied 0.2 percent proof stress being 1273 MPa
-  against the 1275 MPa reported. It is however a wrought curve standing in for a
-  printed one. Pass measured `(k, m)` via `epicp_props(hardening=...)` to override.
-* **Poisson ratio and thermal expansion** are in neither source; 0.29 and
-  13e-6 per K come from NASA CR-123774 and are consistent with the data sheet's
-  wrought band.
+* **Specimen size.** Both datasets are small. Inconel 718 is 1.25 mm wide by
+  1 mm thick, excised from the legs of a larger build; Inconel 625 is ASTM E8
+  subsize at 6 by 4 mm. For a lattice whose struts are a fraction of a
+  millimetre this is arguably closer than a bulk specimen would be, since the
+  grain structure and defect population are those of a thin printed section
+  rather than of a block, but it is a property of the available data rather than
+  a choice, and no measured AM curve on a full size specimen was found for
+  either alloy in the as built condition. Pass measured `(k, m)` via
+  `epicp_props(hardening=...)` to override either fit.
+* **Poisson ratio and thermal expansion** are in none of the sources. 0.29 and
+  13e-6 per K for IN718 come from NASA CR-123774 and are consistent with the
+  Renishaw sheet's wrought band; 0.28 and 12.8e-6 for IN625 are the usual
+  wrought values near room temperature.
 * **Identification bounds** scale with each cell's own stress at 0.2 percent
   plastic strain, which is what lets one set of bounds span a 5 percent and a
   50 percent dense cell. The multipliers are in `PARAMETER_BOUNDS` in step 4.

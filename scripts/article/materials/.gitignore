@@ -1,3 +1,4 @@
-# The NIST dataset is not redistributed here, only the fit derived from it.
-# Fetch it with: python inconel625.py --download
+# The NIST datasets are not redistributed here, only the fits derived from them.
+# Fetch them with: python inconel625.py --download / python inconel718.py --download
 data_in625/
+data_in718/
